@@ -1,6 +1,15 @@
 package com.watchora.data
 
 import android.content.Context
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.NoCredentialException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.GoogleAuthProvider
+import com.watchora.R
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
@@ -38,6 +47,25 @@ class AuthRepository(@Suppress("UNUSED_PARAMETER") context: Context) {
         return WatchUser(name.trim(), email.trim())
     }
 
+    /**
+     * Google se login. [activityContext] Activity hona chahiye (Compose me LocalContext.current).
+     * Web client ID google-services.json se apne-aap R.string.default_web_client_id me aata hai.
+     */
+    suspend fun signInWithGoogle(activityContext: Context): WatchUser {
+        val option = GetSignInWithGoogleOption.Builder(
+            activityContext.getString(R.string.default_web_client_id)
+        ).build()
+        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+        val result = CredentialManager.create(activityContext).getCredential(activityContext, request)
+        val cred = result.credential
+        if (cred !is CustomCredential || cred.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+            throw IllegalStateException("Google account ki jaankari nahi mili")
+        }
+        val google = GoogleIdTokenCredential.createFrom(cred.data)
+        auth.signInWithCredential(GoogleAuthProvider.getCredential(google.idToken, null)).await()
+        return currentUser() ?: throw IllegalStateException("Login ke baad user nahi mila")
+    }
+
     fun logout() = auth.signOut()
 }
 
@@ -53,6 +81,8 @@ private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont 
 
 /** Error ko seedhi bhasha me badalna. */
 fun friendlyError(e: Throwable): String = when (e) {
+    is GetCredentialCancellationException -> "Google login band kar diya gaya."
+    is NoCredentialException -> "Phone me koi Google account nahi mila. Settings me Google account jodo."
     is FirebaseAuthWeakPasswordException -> "Password kamzor hai. Kam se kam 8 akshar rakho."
     is FirebaseAuthUserCollisionException -> "Is email se account pehle se bana hai. Login karo."
     is FirebaseAuthInvalidUserException -> "Is email se koi account nahi mila. Sign up karo."

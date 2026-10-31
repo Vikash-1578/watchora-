@@ -22,6 +22,8 @@ import com.watchora.data.Title
 import com.watchora.data.WatchUser
 import com.watchora.ui.screens.*
 import com.watchora.ui.theme.*
+import com.watchora.data.friendlyError
+import kotlinx.coroutines.launch
 
 enum class Tab(val label: String, val icon: WIcon) {
     Home("Home", WIcon.Home),
@@ -46,6 +48,8 @@ private val qualities = listOf("Auto", "720p", "480p")
 fun WatchoraApp() {
     val context = LocalContext.current
     val auth = remember { AuthRepository(context) }
+    val scope = rememberCoroutineScope()
+    var googleBusy by remember { mutableStateOf(false) }
 
     val stack = remember { mutableStateListOf<Screen>(Screen.Splash) }
     var user by remember { mutableStateOf<WatchUser?>(null) }
@@ -68,7 +72,22 @@ fun WatchoraApp() {
     val play: (Title) -> Unit = { go(Screen.Player(it.id)) }
     val cycleQuality = { quality = qualities[(qualities.indexOf(quality) + 1) % qualities.size] }
     val comingSoon = {
-        Toast.makeText(context, "Ye login jaldi aa raha hai. Abhi Email se login karo.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Phone OTP jaldi aa raha hai. Abhi Google ya Email se login karo.", Toast.LENGTH_SHORT).show()
+    }
+    val googleLogin: () -> Unit = {
+        if (!googleBusy) {
+            googleBusy = true
+            scope.launch {
+                try {
+                    user = auth.signInWithGoogle(context)
+                    goTab(Tab.Home)
+                } catch (e: Exception) {
+                    Toast.makeText(context, friendlyError(e), Toast.LENGTH_LONG).show()
+                } finally {
+                    googleBusy = false
+                }
+            }
+        }
     }
 
     // App khulte hi check: pehle se login hai?
@@ -87,7 +106,7 @@ fun WatchoraApp() {
                     Logo(box = 44.dp, textSize = 28.sp)
                 }
                 Screen.Welcome -> WelcomeScreen(
-                    onGoogle = comingSoon,
+                    onGoogle = googleLogin,
                     onPhone = comingSoon,
                     onEmail = { go(Screen.EmailAuth) }
                 )
