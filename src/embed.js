@@ -8,8 +8,22 @@ export function pickLink(raw) {
   return url ? url[0] : text;
 }
 
+// Every link in pasted text (several embed codes or links, one per server)
+export function pickLinks(raw) {
+  const out = [];
+  const re = /<iframe[\s\S]*?(?:<\/iframe>|>)|https?:\/\/[^\s"'<>]+/gi;
+  for (const m of String(raw || '').matchAll(re)) {
+    const link = m[0].toLowerCase().startsWith('<iframe') ? (m[0].match(/src\s*=\s*["']([^"']+)["']/i) || [])[1] : m[0];
+    if (link && !out.includes(link.trim())) out.push(link.trim());
+  }
+  return out;
+}
+
+// Only share links are changed; embed links are kept exactly as the host gives them.
 export function toEmbedUrl(raw) {
   return pickLink(raw)
+    .replace(/(mixdrop\.\w+)\/f\//i, '$1/e/')
+    .replace(/^(https?:\/\/voe\.sx)\/(?!e\/)([\w-]+)$/i, '$1/e/$2')
     .replace(/(streamtape\.\w+)\/v\//i, '$1/e/')
     .replace(/(dood\w*\.\w+)\/d\//i, '$1/e/')
     .replace(/(filemoon\.\w+)\/d\//i, '$1/e/')

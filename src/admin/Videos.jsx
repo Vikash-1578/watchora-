@@ -4,7 +4,7 @@ import { QUALITIES } from '../config.js';
 import { useToast, ConfirmButton, Field, LanguagePicker } from './ui.jsx';
 import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 
-import { toEmbedUrl, pickLink } from '../embed.js';
+import { toEmbedUrl, pickLink, pickLinks } from '../embed.js';
 
 export { toEmbedUrl };
 
@@ -58,13 +58,29 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const links = pickLinks(url).map(toEmbedUrl);
+  const have = new Set(list.map((s) => s.url));
+  const fresh = links.filter((l) => !have.has(l));
+  const many = links.length > 1;
+
   const add = async (e) => {
     e.preventDefault();
+    if (!links.length) { toast('Paste a link that starts with https://', 'error'); return; }
+    if (!fresh.length) { toast('This link is already added', 'error'); return; }
     setBusy(true);
     try {
-      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality, audio, subtitles: subs, download_url: downloadUrl ? pickLink(downloadUrl) : '', size });
+      for (let i = 0; i < fresh.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await api.addSource({
+          title_id: t.id, episode_id: episodeId, url: fresh[i],
+          label: (!many && label) || undefined,
+          quality, audio, subtitles: subs,
+          download_url: !many && downloadUrl ? pickLink(downloadUrl) : '',
+          size: many ? '' : size,
+        });
+      }
       setUrl(''); setLabel(''); setDownloadUrl(''); setSize('');
-      toast('Server added');
+      toast(fresh.length > 1 ? `${fresh.length} servers added` : 'Server added');
       reload();
     } catch (err) { toast(err.message, 'error'); onAuthError(err); } finally { setBusy(false); }
   };
@@ -106,13 +122,19 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
       <form className="source-form" onSubmit={add}>
         <div className="inline-form">
           <Field
-            label="Video link"
+            label="Video link or embed code"
             grow
-            hint={url && toEmbedUrl(url) !== url.trim()
-              ? `Will be saved as: ${toEmbedUrl(url)}`
-              : 'Paste the video link: a .mp4 / .m3u8 file link or a link from your video host.'}
+            hint={!url.trim()
+              ? 'Paste the embed link / embed code from your host, or a .mp4 / .m3u8 link. Paste 2 or more (one per line) to add many servers at once.'
+              : !links.length
+                ? 'No link found. It must start with https://'
+                : many
+                  ? `${fresh.length} new server${fresh.length === 1 ? '' : 's'} will be added${links.length > fresh.length ? ` (${links.length - fresh.length} already added)` : ''}: ${fresh.map(hostOf).join(', ')}`
+                  : !fresh.length
+                    ? 'This link is already added.'
+                    : `Will be saved as: ${links[0]}`}
           >
-            <input className="a-input" type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link or embed code: https://vidara.to/e/… or <iframe src=…>" required />
+            <textarea className="a-input mono" rows={many ? Math.min(links.length + 1, 8) : 2} value={url} onChange={(e) => setUrl(e.target.value)} placeholder={'https://vidara.to/e/…  or  <iframe src="…"></iframe>\nMore links on new lines = more servers'} required />
           </Field>
         </div>
         <ServerLanguages audio={audio} setAudio={setAudio} subs={subs} setSubs={setSubs} t={t} />
@@ -123,14 +145,20 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
               {QUALITIES.map((q) => <option key={q}>{q}</option>)}
             </select>
           </Field>
-          <Field label="Server name"><input className="a-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`Server ${list.length + 1}`} /></Field>
+          {!many && <Field label="Server name"><input className="a-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`Server ${list.length + 1}`} /></Field>}
         </div>
         <div className="inline-form">
-          <Field label="Download link (optional)" grow hint="Leave empty to use the video link itself for .mp4 files.">
-            <input className="a-input" type="text" value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} placeholder="https://…" />
-          </Field>
-          <Field label="File size (optional)"><input className="a-input" value={size} onChange={(e) => setSize(e.target.value)} placeholder="1.2 GB" /></Field>
-          <button type="submit" className="btn btn-primary" disabled={busy}>Add server</button>
+          {many ? (
+            <p className="muted small grow-note">Servers are named Server 1, 2, 3… Add each one's download link later with <strong>Edit</strong>.</p>
+          ) : (
+            <>
+              <Field label="Download link (optional)" grow hint="The host's download link. Leave empty for .mp4 links (the video link is used).">
+                <input className="a-input" type="text" value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} placeholder="https://…" />
+              </Field>
+              <Field label="File size (optional)"><input className="a-input" value={size} onChange={(e) => setSize(e.target.value)} placeholder="1.2 GB" /></Field>
+            </>
+          )}
+          <button type="submit" className="btn btn-primary" disabled={busy || !fresh.length}>{busy ? 'Adding…' : many ? `Add ${fresh.length} servers` : 'Add server'}</button>
         </div>
       </form>
       <Subtitles t={t} episodeId={episodeId} reload={reload} />
