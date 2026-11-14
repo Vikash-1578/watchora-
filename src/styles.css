@@ -421,5 +421,3 @@ select {
 .watch-overlay .wp { border-radius: 6px; }
 .watch-overlay .next-ep { align-self: center; }
 .watch-overlay .wp-embed-bar .btn { display: none; }
-.watch-fs:fullscreen, .watch-fs:-webkit-full-screen { width: 100vw; height: 100vh; background: #000; }
-.watch-fs:fullscreen .watch-overlay, .watch-fs:-webkit-full-screen .watch-overlay { position: absolute; }
