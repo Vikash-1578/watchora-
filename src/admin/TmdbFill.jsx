@@ -30,13 +30,33 @@ export default function TmdbFill({ enabled, onFill, isNew }) {
   const [items, setItems] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [open, setOpen] = useState(isNew);
+  const [open, setOpen] = useState(enabled ? isNew : false);
 
   if (!enabled) {
+    if (!open) {
+      return (
+        <button type="button" className="btn btn-ghost tmdb-btn" onClick={() => setOpen(true)}>
+          ✨ Auto-fill details from TMDB
+        </button>
+      );
+    }
     return (
-      <div className="tmdb-off">
-        <strong>Tip:</strong> Turn on auto-fill to fill everything from a title's name. See the steps on the Dashboard.
-      </div>
+      <section className="a-card tmdb">
+        <header className="a-card-head">
+          <div>
+            <h2>Auto-fill is not turned on yet</h2>
+            <p className="muted small">It needs a free TMDB key. Do this once, then this button fills poster, story, cast, genres and trailer from a name.</p>
+          </div>
+          <button type="button" className="link-btn" onClick={() => setOpen(false)}>Close</button>
+        </header>
+        <ol className="steps">
+          <li>Make a free account on <a href="https://www.themoviedb.org/signup" target="_blank" rel="noreferrer">themoviedb.org</a> and verify your email.</li>
+          <li>Open <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer">Settings → API</a>, request a key (Developer) and fill the short form.</li>
+          <li>Copy the long <strong>API Read Access Token</strong>.</li>
+          <li>In Cloudflare: Watchora → Settings → Variables and secrets → Add. Type <strong>Secret</strong>, name <code>TMDB_API_KEY</code>, paste the token, Save.</li>
+          <li>Redeploy the site. This button then opens a search box.</li>
+        </ol>
+      </section>
     );
   }
 

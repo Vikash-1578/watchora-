@@ -236,3 +236,5 @@ code { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 0
 .source-form { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .source-form .inline-form { margin: 8px 0; }
 .source-preview video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--r-sm); }
+
+.tmdb-btn { margin: 12px 0 4px; }
