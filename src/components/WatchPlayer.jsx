@@ -110,22 +110,33 @@ export default function WatchPlayer({ sources, subtitles = [], poster, heading, 
 // with no sandbox, so the host's own player and ads work (needed for host monetization).
 function EmbedPlayer({ sel, hasSubs }) {
   const s = sel.current;
+  const boxRef = useRef(null);
+  const fullscreen = () => {
+    const el = boxRef.current;
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+  };
   return (
     <>
-      <div className="wp">
+      <div className="wp wp-embed" ref={boxRef}>
         <iframe
           key={s.id}
           src={s.url}
           title="Video player"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
+          webkitallowfullscreen="true"
+          mozallowfullscreen="true"
           referrerPolicy="origin"
         />
       </div>
-      <p className="small muted">
-        Video not playing? Try another server.
-        {hasSubs && ' Subtitles and volume boost work on servers that use the Watchora player.'}
-      </p>
+      <div className="wp-bar wp-embed-bar">
+        <span className="small muted">
+          Video not playing? Try another server.
+          {hasSubs && ' Subtitles and volume boost work on servers that use the Watchora player.'}
+        </span>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={fullscreen}>⛶ Full screen</button>
+      </div>
     </>
   );
 }
@@ -250,9 +261,16 @@ function NativePlayer({ sel, subtitles, poster, progressKey, onEnded, resumeAt, 
   const poke = useCallback(() => {
     setShowUi(true);
     clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => { if (videoRef.current && !videoRef.current.paused) setShowUi(false); }, 3000);
+    hideTimer.current = setTimeout(() => { if (videoRef.current && !videoRef.current.paused) setShowUi(false); }, 5000);
   }, []);
 
+  const lastPointer = useRef('mouse');
+  // on phones the first tap only shows the controls; on a computer a click plays / pauses
+  const tapVideo = () => {
+    if (lastPointer.current === 'touch' && !showUi && playing) { poke(); return; }
+    toggle();
+    poke();
+  };
   const toggle = () => {
     const v = videoRef.current;
     if (v.paused) v.play().catch(() => {}); else v.pause();
@@ -373,7 +391,8 @@ function NativePlayer({ sel, subtitles, poster, progressKey, onEnded, resumeAt, 
         preload="metadata"
         crossOrigin={crossOrigin}
         controlsList="nodownload"
-        onClick={toggle}
+        onPointerDown={(e) => { lastPointer.current = e.pointerType; }}
+        onClick={tapVideo}
         onDoubleClick={fullscreen}
         {...ev}
       >
@@ -392,10 +411,22 @@ function NativePlayer({ sel, subtitles, poster, progressKey, onEnded, resumeAt, 
       {waiting && !error && <div className="wp-spin" aria-hidden="true" />}
       {error && <div className="wp-error"><p>{error}</p></div>}
       {notice && <div className="wp-notice" role="status">{notice}</div>}
-      {!playing && !waiting && !error && (
-        <button type="button" className="wp-big" onClick={toggle} aria-label="Play">
-          <svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" /></svg>
-        </button>
+      {!error && (
+        <div className="wp-center" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="wp-cbtn" onClick={() => { seek(-10); poke(); }} aria-label="Back 10 seconds">
+            <svg viewBox="0 0 24 24"><path d="M12 5V2L7 6l5 4V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z" /><text x="12" y="16.5" textAnchor="middle" fontSize="6.5" fontWeight="700">10</text></svg>
+          </button>
+          {!waiting && (
+            <button type="button" className="wp-cbtn wp-cplay" onClick={() => { toggle(); poke(); }} aria-label={playing ? 'Pause' : 'Play'}>
+              {playing
+                ? <svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z" /></svg>
+                : <svg viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z" /></svg>}
+            </button>
+          )}
+          <button type="button" className="wp-cbtn" onClick={() => { seek(10); poke(); }} aria-label="Forward 10 seconds">
+            <svg viewBox="0 0 24 24"><path d="M12 5V2l5 4-5 4V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z" /><text x="12" y="16.5" textAnchor="middle" fontSize="6.5" fontWeight="700">10</text></svg>
+          </button>
+        </div>
       )}
 
       <div className="wp-controls" onClick={(e) => e.stopPropagation()}>
