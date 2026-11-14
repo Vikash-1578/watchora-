@@ -349,7 +349,7 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
   const [audio, setAudio] = useState(() => titleAudios(t).join(','));
   const [subs, setSubs] = useState('');
   const [busy, setBusy] = useState(false);
-  const urls = text.split(/\s+/).map((x) => x.trim()).filter(Boolean);
+  const urls = pickLinks(text);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -364,7 +364,7 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
   const s = parseInt(start, 10) || 1;
   return (
     <form className="tool-panel" onSubmit={submit}>
-      <p className="tool-title">Paste one link per line. The first link goes to the start episode, the next link to the next episode, and so on. Missing episodes are created.</p>
+      <p className="tool-title">Paste one link or embed code per episode, in order. The first link goes to the start episode, the next link to the next episode, and so on. Missing episodes are created.</p>
       <Field label={`Links${urls.length ? ` (${urls.length}: episodes ${s} to ${s + urls.length - 1})` : ''}`} grow>
         <textarea className="a-input mono" rows="6" value={text} onChange={(e) => setText(e.target.value)} placeholder={'https://streamtape.com/v/aaa\nhttps://streamtape.com/v/bbb\nhttps://streamtape.com/v/ccc'} required />
       </Field>
