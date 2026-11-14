@@ -1,7 +1,17 @@
 // Share links from common hosts -> their embed links
+// Pulls the link out of pasted text: iframe embed code, "file name + link", etc.
+export function pickLink(raw) {
+  const text = String(raw || '').trim();
+  const src = text.match(/src\s*=\s*["']([^"']+)["']/i);
+  if (src) return src[1].trim();
+  const url = text.match(/https?:\/\/[^\s"'<>]+/i);
+  return url ? url[0] : text;
+}
+
 export function toEmbedUrl(raw) {
-  return String(raw || '').trim()
+  return pickLink(raw)
     .replace(/(streamtape\.\w+)\/v\//i, '$1/e/')
+    .replace(/(vidara\.\w+)\/v\//i, '$1/e/')
     .replace(/(dood\w*\.\w+)\/d\//i, '$1/e/')
     .replace(/(filemoon\.\w+)\/d\//i, '$1/e/')
     .replace(/(dailymotion\.com)\/video\//i, '$1/embed/video/')

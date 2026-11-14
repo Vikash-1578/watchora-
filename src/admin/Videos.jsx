@@ -4,7 +4,7 @@ import { QUALITIES } from '../config.js';
 import { useToast, ConfirmButton, Field, LanguagePicker } from './ui.jsx';
 import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 
-import { toEmbedUrl } from '../embed.js';
+import { toEmbedUrl, pickLink } from '../embed.js';
 
 export { toEmbedUrl };
 
@@ -62,7 +62,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality, audio, subtitles: subs, download_url: downloadUrl, size });
+      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality, audio, subtitles: subs, download_url: downloadUrl ? pickLink(downloadUrl) : '', size });
       setUrl(''); setLabel(''); setDownloadUrl(''); setSize('');
       toast('Server added');
       reload();
@@ -112,7 +112,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
               ? `Will be saved as: ${toEmbedUrl(url)}`
               : 'Paste the video link: a .mp4 / .m3u8 file link or a link from your video host.'}
           >
-            <input className="a-input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/movie-720p.mp4 or https://streamtape.com/v/…" required />
+            <input className="a-input" type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link or embed code: https://vidara.to/e/… or <iframe src=…>" required />
           </Field>
         </div>
         <ServerLanguages audio={audio} setAudio={setAudio} subs={subs} setSubs={setSubs} t={t} />
@@ -127,7 +127,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
         </div>
         <div className="inline-form">
           <Field label="Download link (optional)" grow hint="Leave empty to use the video link itself for .mp4 files.">
-            <input className="a-input" type="url" value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} placeholder="https://…" />
+            <input className="a-input" type="text" value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} placeholder="https://…" />
           </Field>
           <Field label="File size (optional)"><input className="a-input" value={size} onChange={(e) => setSize(e.target.value)} placeholder="1.2 GB" /></Field>
           <button type="submit" className="btn btn-primary" disabled={busy}>Add server</button>
@@ -145,7 +145,7 @@ function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, rel
 
   const save = async () => {
     try {
-      await api.updateSource(s.id, { ...form, url: toEmbedUrl(form.url) });
+      await api.updateSource(s.id, { ...form, url: toEmbedUrl(form.url), download_url: form.download_url ? pickLink(form.download_url) : '' });
       setEdit(false);
       toast('Server saved');
       reload();
@@ -178,7 +178,7 @@ function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, rel
       ) : (
         <div className="source-form">
           <div className="inline-form">
-            <Field label="Video link" grow><input className="a-input" type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
+            <Field label="Video link" grow><input className="a-input" type="text" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
           </div>
           <ServerLanguages
             audio={form.audio}
@@ -196,7 +196,7 @@ function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, rel
             <Field label="Server name"><input className="a-input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></Field>
           </div>
           <div className="inline-form">
-            <Field label="Download link" grow><input className="a-input" type="url" value={form.download_url} onChange={(e) => setForm({ ...form, download_url: e.target.value })} placeholder="Optional" /></Field>
+            <Field label="Download link" grow><input className="a-input" type="text" value={form.download_url} onChange={(e) => setForm({ ...form, download_url: e.target.value })} placeholder="Optional" /></Field>
             <Field label="File size"><input className="a-input" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} /></Field>
             <button type="button" className="btn btn-primary" onClick={save}>Save</button>
             <button type="button" className="link-btn" onClick={() => setEdit(false)}>Cancel</button>
