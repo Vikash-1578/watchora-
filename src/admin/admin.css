@@ -243,3 +243,6 @@ code { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 0
 .banner-time label { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .banner-time label > span { font-weight: 600; }
 .banner-time select { width: auto; min-width: 220px; }
+
+.server-langs { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin: 10px 0 4px; }
+.server-langs .lp { min-width: 0; }

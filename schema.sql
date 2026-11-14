@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS sources (
   url TEXT NOT NULL,
   quality TEXT DEFAULT '',
   kind TEXT DEFAULT 'embed',         -- embed | file | hls
-  audio TEXT DEFAULT '',             -- audio language of this server
+  audio TEXT DEFAULT '',             -- audio languages of this server (comma list)
+  subtitles TEXT DEFAULT '',         -- subtitles in this video: '' not set, 'None', or comma list
   download_url TEXT DEFAULT '',
   size TEXT DEFAULT '',
   sort INTEGER NOT NULL DEFAULT 0

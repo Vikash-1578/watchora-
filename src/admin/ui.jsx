@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback, useId } from 'react';
 
 // ---------- toast messages ----------
 const ToastCtx = createContext(() => {});
@@ -169,14 +169,17 @@ export function Section({ title, desc, children, actions, id }) {
 }
 
 // ---------- language picker: search + tick boxes ----------
-export function LanguagePicker({ label, value, onChange, all, popular, multiple = true, hint, placeholder = 'Choose languages' }) {
-  const selected = multiple ? toList(value) : (value ? [value] : []);
+export function LanguagePicker({ label, value, onChange, all, popular, multiple = true, hint, placeholder = 'Choose languages', noneLabel }) {
+  // noneLabel: adds a "none" choice (saved as 'None'), e.g. "No subtitles"
+  const isNone = !!noneLabel && value === 'None';
+  const selected = isNone ? [] : multiple ? toList(value) : (value ? [value] : []);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const id = `lp-${label.replace(/\W/g, '')}`;
+  const id = `lp-${useId().replace(/:/g, '')}`;
 
   const pick = (lang) => {
     if (!multiple) { onChange(lang); setOpen(false); setQ(''); return; }
+    if (lang === 'None') { onChange(isNone ? '' : 'None'); return; }
     const next = selected.includes(lang) ? selected.filter((x) => x !== lang) : [...selected, lang];
     onChange(next.join(','));
   };
@@ -194,7 +197,13 @@ export function LanguagePicker({ label, value, onChange, all, popular, multiple 
       </span>
 
       <div className="lp-box">
-        {selected.length === 0 && <span className="muted">{placeholder}</span>}
+        {isNone && (
+          <span className="tag">
+            {noneLabel}
+            <button type="button" onClick={() => onChange('')} aria-label={`Remove ${noneLabel}`}>×</button>
+          </span>
+        )}
+        {!isNone && selected.length === 0 && <span className="muted">{placeholder}</span>}
         {selected.map((l) => (
           <span key={l} className="tag">
             {l}
@@ -208,6 +217,11 @@ export function LanguagePicker({ label, value, onChange, all, popular, multiple 
 
       {multiple && (
         <div className="lp-quick" aria-label="Common languages">
+          {noneLabel && (
+            <button type="button" className={`chip chip-sm ${isNone ? 'on' : ''}`} aria-pressed={isNone} onClick={() => pick('None')}>
+              {isNone ? '✓ ' : ''}{noneLabel}
+            </button>
+          )}
           {quick.map((l) => (
             <button key={l} type="button" className={`chip chip-sm ${selected.includes(l) ? 'on' : ''}`} aria-pressed={selected.includes(l)} onClick={() => pick(l)}>
               {selected.includes(l) ? '✓ ' : ''}{l}

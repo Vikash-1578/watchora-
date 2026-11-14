@@ -178,7 +178,7 @@ export function TitleView({ slug, adult = false }) {
                       <li key={s.id}>
                         <a href={s.href} target="_blank" rel="noopener noreferrer nofollow" download className="dl-item">
                           <span className="dl-q">{s.label}</span>
-                          <span className="dl-info">{[s.quality, s.audio, s.size].filter(Boolean).join('  |  ') || 'Download'}</span>
+                          <span className="dl-info">{[s.quality, split(s.audio).join(' + '), s.subtitles === 'None' ? 'No subs' : s.subtitles ? `Subs: ${split(s.subtitles).join(', ')}` : '', s.size].filter(Boolean).join('  |  ') || 'Download'}</span>
                           <span className="dl-go" aria-hidden="true">↓</span>
                         </a>
                       </li>

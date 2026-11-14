@@ -19,8 +19,12 @@ const fmt = (s) => {
 const BOOSTS = [1, 1.5, 2, 2.5, 3];
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
+const langs = (v) => (v ? String(v).split(',').map((x) => x.trim()).filter(Boolean) : []);
+const subsLabel = (v) => (v === 'None' ? 'No subs' : v ? `Subs: ${langs(v).join(', ')}` : '');
+
 function useSelection(sources) {
-  const audios = useMemo(() => [...new Set(sources.map((s) => s.audio).filter(Boolean))], [sources]);
+  // a server can have more than one audio language (dual / multi audio video)
+  const audios = useMemo(() => [...new Set(sources.flatMap((s) => langs(s.audio)))], [sources]);
   const [audio, setAudio] = useState(() => {
     const saved = read('wc_audio', '');
     return audios.includes(saved) ? saved : audios[0] || '';
@@ -32,7 +36,7 @@ function useSelection(sources) {
     }
   }, [audios]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const byAudio = audios.length ? sources.filter((s) => s.audio === audio) : sources;
+  const byAudio = audios.length ? sources.filter((s) => langs(s.audio).includes(audio)) : sources;
   const qualities = [...new Set(byAudio.map((s) => s.quality).filter(Boolean))].sort((a, b) => qNum(b) - qNum(a));
   const [quality, setQuality] = useState(() => read('wc_quality', ''));
   const q = qualities.includes(quality) ? quality : qualities[0] || '';
@@ -41,7 +45,8 @@ function useSelection(sources) {
   const current = servers.find((s) => s.id === serverId) || servers[0] || sources[0];
 
   const pick = (src) => {
-    if (src.audio) { setAudio(src.audio); write('wc_audio', src.audio); }
+    const a = langs(src.audio);
+    if (a.length && !a.includes(audio)) { setAudio(a[0]); write('wc_audio', a[0]); }
     if (src.quality) { setQuality(src.quality); write('wc_quality', src.quality); }
     setServerId(src.id);
   };
@@ -90,7 +95,7 @@ export default function WatchPlayer({ sources, subtitles = [], poster, heading, 
                 }}
               >
                 <span className="srv-name">{x.label}</span>
-                {(x.quality || x.audio) && <span className="srv-meta">{[x.quality, x.audio].filter(Boolean).join(' | ')}</span>}
+                {(x.quality || x.audio || x.subtitles) && <span className="srv-meta">{[x.quality, langs(x.audio).join(' + '), subsLabel(x.subtitles)].filter(Boolean).join(' | ')}</span>}
               </button>
             );
           })}

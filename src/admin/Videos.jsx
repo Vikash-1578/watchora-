@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { QUALITIES } from '../config.js';
-import { useToast, ConfirmButton, Field } from './ui.jsx';
-import { ALL_LANGUAGES } from '../languages.js';
+import { useToast, ConfirmButton, Field, LanguagePicker } from './ui.jsx';
+import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 
 import { toEmbedUrl } from '../embed.js';
 
@@ -10,16 +10,37 @@ export { toEmbedUrl };
 
 const titleAudios = (t) => (t.audio ? t.audio.split(',').filter(Boolean) : t.language ? [t.language] : []);
 
-function AudioSelect({ value, onChange, t }) {
-  const mine = titleAudios(t);
+const titleSubs = (t) => (t.subtitles ? t.subtitles.split(',').filter(Boolean) : []);
+const uniq = (a) => [...new Set(a)];
+
+// Audio and subtitle languages of one server (both multiple choice)
+function ServerLanguages({ audio, setAudio, subs, setSubs, t }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">Not set</option>
-      {mine.length > 0 && <optgroup label="This title's audio">{mine.map((l) => <option key={l}>{l}</option>)}</optgroup>}
-      <optgroup label="All languages">{ALL_LANGUAGES.filter((l) => !mine.includes(l)).map((l) => <option key={l}>{l}</option>)}</optgroup>
-    </select>
+    <div className="server-langs">
+      <LanguagePicker
+        label="Audio languages in this video"
+        value={audio}
+        onChange={setAudio}
+        all={ALL_LANGUAGES}
+        popular={uniq([...titleAudios(t), ...POPULAR_LANGUAGES])}
+        placeholder="Not set"
+        hint="Pick 2 or more for a dual / multi audio video."
+      />
+      <LanguagePicker
+        label="Subtitles in this video"
+        value={subs}
+        onChange={setSubs}
+        all={ALL_LANGUAGES}
+        popular={uniq([...titleSubs(t), 'English', 'Hindi', ...POPULAR_LANGUAGES])}
+        placeholder="Not set"
+        noneLabel="No subtitles"
+        hint="Subtitles already inside this video or its host player."
+      />
+    </div>
   );
 }
+
+export const subsText = (v) => (v === 'None' ? 'No subtitles' : v ? `Subs: ${v.split(',').join(', ')}` : '');
 
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
@@ -30,7 +51,8 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
   const [quality, setQuality] = useState('');
-  const [audio, setAudio] = useState(() => titleAudios(t)[0] || '');
+  const [audio, setAudio] = useState(() => titleAudios(t).join(','));
+  const [subs, setSubs] = useState('');
   const [downloadUrl, setDownloadUrl] = useState('');
   const [size, setSize] = useState('');
   const [preview, setPreview] = useState(null);
@@ -40,7 +62,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality, audio, download_url: downloadUrl, size });
+      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality, audio, subtitles: subs, download_url: downloadUrl, size });
       setUrl(''); setLabel(''); setDownloadUrl(''); setSize('');
       toast('Server added');
       reload();
@@ -93,8 +115,8 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
             <input className="a-input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/movie-720p.mp4 or https://streamtape.com/v/…" required />
           </Field>
         </div>
+        <ServerLanguages audio={audio} setAudio={setAudio} subs={subs} setSubs={setSubs} t={t} />
         <div className="inline-form">
-          <Field label="Audio language"><AudioSelect value={audio} onChange={setAudio} t={t} /></Field>
           <Field label="Quality">
             <select value={quality} onChange={(e) => setQuality(e.target.value)}>
               <option value="">Not set</option>
@@ -119,7 +141,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
 function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, reload }) {
   const toast = useToast();
   const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState({ label: s.label, url: s.url, quality: s.quality || '', audio: s.audio || '', download_url: s.download_url || '', size: s.size || '' });
+  const [form, setForm] = useState({ label: s.label, url: s.url, quality: s.quality || '', audio: s.audio || '', subtitles: s.subtitles || '', download_url: s.download_url || '', size: s.size || '' });
 
   const save = async () => {
     try {
@@ -140,7 +162,8 @@ function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, rel
           </div>
           <div className="source-info">
             <strong>{s.label}</strong>
-            {s.audio && <span className="pill">{s.audio}</span>}
+            {s.audio && <span className="pill">{s.audio.split(',').join(' + ')}</span>}
+            {s.subtitles && <span className="pill">{subsText(s.subtitles)}</span>}
             {s.quality && <span className="pill">{s.quality}</span>}
             {(s.download_url || s.kind === 'file') && <span className="pill">Download{s.size ? ` ${s.size}` : ''}</span>}
             <span className="source-host">{hostOf(s.url)}</span>
@@ -157,8 +180,14 @@ function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, rel
           <div className="inline-form">
             <Field label="Video link" grow><input className="a-input" type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
           </div>
+          <ServerLanguages
+            audio={form.audio}
+            setAudio={(v) => setForm((f) => ({ ...f, audio: v }))}
+            subs={form.subtitles}
+            setSubs={(v) => setForm((f) => ({ ...f, subtitles: v }))}
+            t={t}
+          />
           <div className="inline-form">
-            <Field label="Audio language"><AudioSelect value={form.audio} onChange={(v) => setForm({ ...form, audio: v })} t={t} /></Field>
             <Field label="Quality">
               <select value={form.quality} onChange={(e) => setForm({ ...form, quality: e.target.value })}>
                 <option value="">Not set</option>{QUALITIES.map((q) => <option key={q}>{q}</option>)}
@@ -289,7 +318,8 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
   const [text, setText] = useState('');
   const [label, setLabel] = useState('');
   const [quality, setQuality] = useState('');
-  const [audio, setAudio] = useState(() => titleAudios(t)[0] || '');
+  const [audio, setAudio] = useState(() => titleAudios(t).join(','));
+  const [subs, setSubs] = useState('');
   const [busy, setBusy] = useState(false);
   const urls = text.split(/\s+/).map((x) => x.trim()).filter(Boolean);
 
@@ -297,7 +327,7 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await api.addSources({ title_id: t.id, season, start_episode: start, urls: urls.map(toEmbedUrl), label: label || undefined, quality, audio });
+      const r = await api.addSources({ title_id: t.id, season, start_episode: start, urls: urls.map(toEmbedUrl), label: label || undefined, quality, audio, subtitles: subs });
       toast(`Added ${r.added} link${r.added > 1 ? 's' : ''} to episodes ${r.from}–${r.to}`);
       done();
     } catch (err) { toast(err.message, 'error'); onAuthError(err); } finally { setBusy(false); }
@@ -310,10 +340,10 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
       <Field label={`Links${urls.length ? ` (${urls.length}: episodes ${s} to ${s + urls.length - 1})` : ''}`} grow>
         <textarea className="a-input mono" rows="6" value={text} onChange={(e) => setText(e.target.value)} placeholder={'https://streamtape.com/v/aaa\nhttps://streamtape.com/v/bbb\nhttps://streamtape.com/v/ccc'} required />
       </Field>
+      <ServerLanguages audio={audio} setAudio={setAudio} subs={subs} setSubs={setSubs} t={t} />
       <div className="inline-form">
         <Field label="Season"><input className="a-input" value={season} disabled /></Field>
         <Field label="Start at episode"><input className="a-input" type="number" min="1" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
-        <Field label="Audio language"><AudioSelect value={audio} onChange={setAudio} t={t} /></Field>
         <Field label="Server name"><input className="a-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Auto: Server 1, 2…" /></Field>
         <Field label="Quality">
           <select value={quality} onChange={(e) => setQuality(e.target.value)}>

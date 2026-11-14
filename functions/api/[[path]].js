@@ -157,7 +157,7 @@ async function getTitle(env, key, { admin = false } = {}) {
   if (!title) return null;
   const [eps, srcs, subs] = await env.DB.batch([
     env.DB.prepare('SELECT * FROM episodes WHERE title_id = ? ORDER BY season, episode').bind(title.id),
-    env.DB.prepare('SELECT id, episode_id, label, url, quality, kind, audio, download_url, size, sort FROM sources WHERE title_id = ? ORDER BY sort, id').bind(title.id),
+    env.DB.prepare('SELECT id, episode_id, label, url, quality, kind, audio, subtitles, download_url, size, sort FROM sources WHERE title_id = ? ORDER BY sort, id').bind(title.id),
     env.DB.prepare('SELECT id, episode_id, language, url, sort FROM subtitles WHERE title_id = ? ORDER BY sort, id').bind(title.id),
   ]);
   const out = { ...title, episodes: eps.results, sources: srcs.results, subtitle_files: subs.results };
@@ -386,8 +386,15 @@ const sourceKind = (url, given) => {
   if (/\.(mp4|webm|m4v|mov|ogv|mkv)$/.test(u)) return 'file';
   return 'embed';
 };
+// Server subtitles: '' = not set, 'None' = no subtitles, else a comma list of languages.
+const subsValue = (v) => {
+  const list = csv(v, 300);
+  if (!list) return '';
+  return list.split(',').includes('None') ? 'None' : list;
+};
 const sourceExtras = (b) => ({
-  audio: str(b.audio, 40),
+  audio: csv(b.audio, 300),
+  subtitles: subsValue(b.subtitles),
   download_url: b.download_url && isHttpUrl(b.download_url) ? str(b.download_url, 1000) : '',
   size: str(b.size, 20),
 });
@@ -399,8 +406,8 @@ async function addSource(env, b) {
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM sources WHERE title_id = ? AND episode_id IS ?')
     .bind(titleId, episodeId).first();
   const x = sourceExtras(b);
-  const r = await env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, kind, audio, download_url, size, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-    .bind(titleId, episodeId, str(b.label, 40) || `Server ${n + 1}`, str(b.url, 1000), str(b.quality, 20), sourceKind(b.url, b.kind), x.audio, x.download_url, x.size, n).run();
+  const r = await env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, kind, audio, subtitles, download_url, size, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(titleId, episodeId, str(b.label, 40) || `Server ${n + 1}`, str(b.url, 1000), str(b.quality, 20), sourceKind(b.url, b.kind), x.audio, x.subtitles, x.download_url, x.size, n).run();
   await touch(env, titleId);
   return json({ id: r.meta.last_row_id }, 201);
 }
@@ -431,8 +438,8 @@ async function bulkSources(env, b) {
     urls.map((url, i) => {
       const epId = byNo[start + i];
       const n = have[epId] || 0;
-      return env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, kind, audio, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(titleId, epId, str(b.label, 40) || `Server ${n + 1}`, url, str(b.quality, 20), sourceKind(url), str(b.audio, 40), n);
+      return env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, kind, audio, subtitles, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(titleId, epId, str(b.label, 40) || `Server ${n + 1}`, url, str(b.quality, 20), sourceKind(url), csv(b.audio, 300), subsValue(b.subtitles), n);
     })
   );
   await touch(env, titleId);
@@ -690,7 +697,8 @@ async function admin(env, request, parts, url) {
       const args = [];
       if (body.label !== undefined) { sets.push('label = ?'); args.push(str(body.label, 40) || 'Server'); }
       if (body.url !== undefined) { sets.push('url = ?', 'kind = ?'); args.push(str(body.url, 1000), sourceKind(body.url, body.kind)); }
-      if (body.audio !== undefined) { sets.push('audio = ?'); args.push(str(body.audio, 40)); }
+      if (body.audio !== undefined) { sets.push('audio = ?'); args.push(csv(body.audio, 300)); }
+      if (body.subtitles !== undefined) { sets.push('subtitles = ?'); args.push(subsValue(body.subtitles)); }
       if (body.size !== undefined) { sets.push('size = ?'); args.push(str(body.size, 20)); }
       if (body.download_url !== undefined) {
         if (body.download_url && !isHttpUrl(body.download_url)) return fail('Download link must start with http(s)');
@@ -712,6 +720,16 @@ async function admin(env, request, parts, url) {
 }
 
 // ---------- router ----------
+// Adds new columns to an older database by itself, once per worker start.
+let schemaReady = null;
+function ensureSchema(env) {
+  if (!schemaReady) {
+    schemaReady = env.DB.prepare('ALTER TABLE sources ADD COLUMN subtitles TEXT').run()
+      .catch((e) => { if (!/duplicate column/i.test(String(e?.message || e))) { schemaReady = null; console.error('schema update failed', e); } });
+  }
+  return schemaReady;
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
@@ -720,6 +738,7 @@ export async function onRequest(context) {
   if (!env.DB) return fail('Database binding (DB) is not configured', 500);
 
   try {
+    await ensureSchema(env);
     if (parts[0] === 'admin') {
       if (parts[1] === 'login' && request.method === 'POST') {
         if (!env.ADMIN_PASSWORD) return fail('ADMIN_PASSWORD is not configured', 500);
