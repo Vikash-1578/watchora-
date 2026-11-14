@@ -1,0 +1,8 @@
+name = "watchora"
+compatibility_date = "2026-11-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "watchora-db"
+database_id = "f853739c-d29a-4d8f-82bd-281fc7576f27"

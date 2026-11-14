@@ -1,59 +1,18 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Watchora — Coming Soon</title>
-  <meta name="description" content="Watchora — Movies, Web Series, Anime, Drama aur Serials. Jald aa raha hai." />
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(circle at top, #1a1030 0%, #0a0a12 70%);
-      color: #fff;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      text-align: center;
-      padding: 24px;
-    }
-    .logo {
-      font-size: clamp(2.5rem, 8vw, 4.5rem);
-      font-weight: 800;
-      letter-spacing: -1px;
-      background: linear-gradient(90deg, #ff4d6d, #a855f7);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-    .tag { margin-top: 12px; font-size: 1.1rem; color: #c9c9d6; }
-    .cats {
-      margin-top: 28px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-    }
-    .cats span {
-      padding: 8px 16px;
-      border: 1px solid #3a2f55;
-      border-radius: 999px;
-      font-size: 0.9rem;
-      color: #e5dcff;
-      background: rgba(168, 85, 247, 0.08);
-    }
-    .soon { margin-top: 36px; font-size: 0.85rem; color: #8a8aa0; letter-spacing: 3px; text-transform: uppercase; }
-  </style>
+  <title>Watchora — Movies, Web Series, Anime, Drama & Serials</title>
+  <meta name="description" content="Watch movies, web series, anime, drama and TV serials on Watchora. No sign-up needed." />
+  <meta name="theme-color" content="#1A1326" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Hind:wght@400;500;600&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <main>
-    <h1 class="logo">Watchora</h1>
-    <p class="tag">Movies, Web Series, Anime, Drama aur Serials — ek hi jagah.</p>
-    <div class="cats">
-      <span>Movies</span><span>Web Series</span><span>Anime</span><span>Drama</span><span>Serials</span>
-    </div>
-    <p class="soon">Coming soon</p>
-  </main>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
