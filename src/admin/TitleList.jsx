@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { ALL_CATEGORIES, catBySlug, isEpisodic } from '../config.js';
+import { ALL_CATEGORIES, catBySlug, isEpisodic, bannerOn, bannerFor, bannerEnds, shortDate, DEFAULT_BANNER_DAYS } from '../config.js';
 import { useToast } from './ui.jsx';
 
 export default function TitleList({ initial = {}, go, onAuthError }) {
@@ -23,11 +23,13 @@ export default function TitleList({ initial = {}, go, onAuthError }) {
   }, [q, category, filter, sort]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const flip = async (t, key) => {
-    const next = !t[key];
-    setItems((list) => list.map((x) => (x.id === t.id ? { ...x, [key]: next ? 1 : 0 } : x)));
+    const isBanner = key === 'featured';
+    const next = isBanner ? !bannerOn(t.featured) : !t[key];
+    const value = isBanner ? (next ? bannerFor(DEFAULT_BANNER_DAYS) : 0) : next ? 1 : 0;
+    setItems((list) => list.map((x) => (x.id === t.id ? { ...x, [key]: value } : x)));
     try {
-      await api.setFlags(t.id, { [key]: next });
-      toast(key === 'published' ? (next ? `${t.name} is live` : `${t.name} is hidden`) : (next ? 'Added to home banner' : 'Removed from home banner'));
+      await api.setFlags(t.id, { [key]: isBanner ? value : next });
+      toast(!isBanner ? (next ? `${t.name} is live` : `${t.name} is hidden`) : (next ? `In home banner for ${DEFAULT_BANNER_DAYS} days` : 'Removed from home banner'));
     } catch (e) {
       toast(e.message, 'error');
       load();
@@ -95,8 +97,10 @@ export default function TitleList({ initial = {}, go, onAuthError }) {
                     <span>Live</span>
                   </label>
                   <label className="mini-switch">
-                    <input type="checkbox" checked={!!t.featured} onChange={() => flip(t, 'featured')} />
-                    <span>Banner</span>
+                    <input type="checkbox" checked={bannerOn(t.featured)} onChange={() => flip(t, 'featured')} />
+                    <span title={bannerEnds(t.featured) ? `Leaves the banner on ${shortDate(bannerEnds(t.featured))}` : undefined}>
+                      Banner{bannerOn(t.featured) && bannerEnds(t.featured) ? ` · till ${bannerEnds(t.featured).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : ''}
+                    </span>
                   </label>
                 </div>
               </article>

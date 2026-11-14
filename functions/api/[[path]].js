@@ -83,13 +83,22 @@ const num = (v) => {
 const LIST_COLS =
   'id, slug, name, category, subcategory, language, audio, year, certificate, quality, imdb_rating, status, is_adult, poster, backdrop, description, genres';
 
+
+// Banner (featured) value: 0 = off, 1 = until turned off, any bigger number = unix time (seconds) when it leaves the banner.
+function bannerValue(v) {
+  if (v === true) return 1;
+  const n = Math.floor(Number(v) || 0);
+  if (n === 1) return 1;
+  return n > Date.now() / 1000 ? n : 0;
+}
+
 // ---------- public ----------
 async function home(env, url) {
   const adult = url.searchParams.get('adult') === '1' ? 1 : 0;
   const cats = adult ? ['adult'] : CATEGORIES.filter((c) => c !== 'adult');
   const base = `SELECT ${LIST_COLS} FROM titles WHERE published = 1 AND is_adult = ?`;
   const res = await env.DB.batch([
-    env.DB.prepare(`${base} AND featured = 1 ORDER BY updated_at DESC LIMIT 6`).bind(adult),
+    env.DB.prepare(`${base} AND (featured = 1 OR featured > CAST(strftime('%s','now') AS INTEGER)) ORDER BY updated_at DESC LIMIT 6`).bind(adult),
     env.DB.prepare(`${base} ORDER BY created_at DESC LIMIT 18`).bind(adult),
     env.DB.prepare(`${base} ORDER BY views DESC LIMIT 18`).bind(adult),
     ...cats.map((c) => env.DB.prepare(`${base} AND category = ? ORDER BY created_at DESC LIMIT 18`).bind(adult, c)),
@@ -265,7 +274,7 @@ function cleanTitle(b) {
       tmdb_id: int(b.tmdb_id),
       collection: str(b.collection, 120),
       part: int(b.part),
-      featured: b.featured ? 1 : 0,
+      featured: bannerValue(b.featured),
       published: b.published === false || b.published === 0 ? 0 : 1,
     },
   };
@@ -303,7 +312,7 @@ async function adminList(env, url) {
   const filter = p.get('filter');
   if (filter === 'live') where.push('t.published = 1');
   if (filter === 'hidden') where.push('t.published = 0');
-  if (filter === 'featured') where.push('t.featured = 1');
+  if (filter === 'featured') where.push("(t.featured = 1 OR t.featured > CAST(strftime('%s','now') AS INTEGER))");
   if (filter === 'novideo') where.push('NOT EXISTS (SELECT 1 FROM sources s WHERE s.title_id = t.id)');
   const sorts = { views: 't.views DESC', name: 't.name COLLATE NOCASE ASC', new: 't.created_at DESC' };
   const sort = sorts[p.get('sort')] || 't.updated_at DESC';
@@ -320,7 +329,7 @@ async function adminStats(env) {
     env.DB.prepare(`SELECT
         (SELECT COUNT(*) FROM titles) AS titles,
         (SELECT COUNT(*) FROM titles WHERE published = 0) AS hidden,
-        (SELECT COUNT(*) FROM titles WHERE featured = 1) AS featured,
+        (SELECT COUNT(*) FROM titles WHERE (featured = 1 OR featured > CAST(strftime('%s','now') AS INTEGER))) AS featured,
         (SELECT COUNT(*) FROM episodes) AS episodes,
         (SELECT COUNT(*) FROM sources) AS servers,
         (SELECT COALESCE(SUM(views), 0) FROM titles) AS views,
@@ -581,7 +590,7 @@ async function admin(env, request, parts, url) {
     if (id && sub === 'flags' && method === 'PUT') {
       const sets = [];
       const args = [];
-      if ('featured' in body) { sets.push('featured = ?'); args.push(body.featured ? 1 : 0); }
+      if ('featured' in body) { sets.push('featured = ?'); args.push(bannerValue(body.featured)); }
       if ('published' in body) { sets.push('published = ?'); args.push(body.published ? 1 : 0); }
       if (!sets.length) return fail('Nothing to change');
       await env.DB.prepare(`UPDATE titles SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`).bind(...args, Number(id)).run();

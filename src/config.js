@@ -65,3 +65,17 @@ export const titlePath = (t) => (t.is_adult ? `/18plus/title/${t.slug}` : `/titl
 // Movies have no episodes
 export const isEpisodic = (title) =>
   title && !(title.category === 'movies' || title.subcategory === 'Movies');
+
+// Home banner timing. featured: 0 = off, 1 = until turned off, bigger number = unix seconds when it leaves.
+export const BANNER_DAYS = [
+  { value: 3, label: '3 days' },
+  { value: 7, label: '7 days' },
+  { value: 14, label: '14 days' },
+  { value: 30, label: '30 days' },
+  { value: 0, label: 'Until I turn it off' },
+];
+export const DEFAULT_BANNER_DAYS = 7;
+export const bannerOn = (v) => Number(v) === 1 || Number(v) * 1000 > Date.now();
+export const bannerFor = (days) => (days ? Math.floor(Date.now() / 1000) + days * 86400 : 1);
+export const bannerEnds = (v) => (Number(v) > 1 ? new Date(Number(v) * 1000) : null);
+export const shortDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });

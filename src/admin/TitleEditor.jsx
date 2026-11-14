@@ -5,6 +5,7 @@ import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 import {
   ALL_CATEGORIES, GENRES, CERTIFICATES, STATUSES, QUALITIES, COUNTRIES,
   catBySlug, isEpisodic, titlePath,
+  BANNER_DAYS, DEFAULT_BANNER_DAYS, bannerOn, bannerFor, bannerEnds, shortDate,
 } from '../config.js';
 import { Field, MultiChips, TagInput, Toggle, ImagePreview, Section, ConfirmButton, useToast, youTubeId, LanguagePicker } from './ui.jsx';
 import { TrailerPlayer } from '../components/Trailer.jsx';
@@ -15,14 +16,16 @@ const EMPTY = {
   name: '', original_name: '', slug: '', category: 'movies', subcategory: '', language: 'Hindi', audio: 'Hindi',
   subtitles: '', genres: '', tags: '', year: '', release_date: '', runtime: '', country: 'India', certificate: '',
   status: '', quality: '', imdb_rating: '', cast_list: '', director: '', studio: '', collection: '', part: '', description: '',
-  poster: '', backdrop: '', trailer: '', tmdb_id: '', featured: false, published: true,
+  poster: '', backdrop: '', trailer: '', tmdb_id: '', featured: 0, published: true,
 };
 
 const FIELDS = Object.keys(EMPTY);
+// New titles start in the home banner for a few days.
+const fresh = () => ({ ...EMPTY, featured: bannerFor(DEFAULT_BANNER_DAYS) });
 const fromTitle = (t) => {
   const f = { ...EMPTY };
   FIELDS.forEach((k) => { if (t[k] !== null && t[k] !== undefined) f[k] = t[k]; });
-  f.featured = !!t.featured;
+  f.featured = bannerOn(t.featured) ? Number(t.featured) : 0;
   f.published = !!t.published;
   return f;
 };
@@ -38,7 +41,7 @@ const SECTIONS = [
 
 export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
   const toast = useToast();
-  const [form, setForm] = useState(EMPTY);
+  const [form, setForm] = useState(fresh);
   const [saved, setSaved] = useState(EMPTY);
   const [full, setFull] = useState(null);
   const [error, setError] = useState('');
@@ -59,7 +62,7 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
   useEffect(() => {
     setError('');
     if (id) load();
-    else { setFull(null); setForm(EMPTY); setSaved(EMPTY); }
+    else { setFull(null); setForm(fresh()); setSaved(EMPTY); }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // warn about duplicates while typing a new title
@@ -131,7 +134,7 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
         {full && (
           <p className="badges">
             <span className={`pill ${full.published ? 'pill-ok' : ''}`}>{full.published ? 'Live' : 'Hidden'}</span>
-            {full.featured ? <span className="pill">In home banner</span> : null}
+            {bannerOn(full.featured) ? <span className="pill">In home banner{bannerEnds(full.featured) ? ` till ${shortDate(bannerEnds(full.featured))}` : ''}</span> : null}
             {full.is_adult ? <span className="pill pill-rose">18+</span> : null}
             <span className="pill">{full.views} views</span>
           </p>
@@ -324,9 +327,28 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
         <Section id="sec-publish" title="Publishing">
           <div className="toggles">
             <Toggle checked={form.published} onChange={set('published')} label="Live on the site" hint="Turn off to hide it while you add videos." />
-            <Toggle checked={form.featured} onChange={set('featured')} label="Show in the home banner" hint="Needs a banner image to look good." />
+            <Toggle
+              checked={bannerOn(form.featured)}
+              onChange={(on) => set('featured')(on ? bannerFor(DEFAULT_BANNER_DAYS) : 0)}
+              label="Show in the home banner"
+              hint="It leaves the banner by itself after the days you pick."
+            />
           </div>
-          {form.featured && !form.backdrop && <p className="note-warn">Add a banner image above for the home banner.</p>}
+          {bannerOn(form.featured) && (
+            <div className="banner-time">
+              <label>
+                <span>Keep in banner for</span>
+                <select
+                  value=""
+                  onChange={(e) => e.target.value !== '' && set('featured')(bannerFor(Number(e.target.value)))}
+                >
+                  <option value="">{bannerEnds(form.featured) ? `Until ${shortDate(bannerEnds(form.featured))}` : 'Until I turn it off'}</option>
+                  {BANNER_DAYS.map((d) => <option key={d.value} value={d.value}>{d.label}{d.value ? ' from today' : ''}</option>)}
+                </select>
+              </label>
+              {!form.backdrop && <p className="note-warn">Add a banner image above for the home banner.</p>}
+            </div>
+          )}
         </Section>
 
         {error && <p className="error" role="alert">{error}</p>}
