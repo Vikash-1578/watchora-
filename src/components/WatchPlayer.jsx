@@ -106,30 +106,24 @@ export default function WatchPlayer({ sources, subtitles = [], poster, heading, 
 }
 
 // ---------- host's own player (iframe) ----------
+// Host players (Vidara, Streamtape…) are shown exactly as the host gives them,
+// with no sandbox, so the host's own player and ads work (needed for host monetization).
 function EmbedPlayer({ sel, hasSubs }) {
-  const [blockPopups, setBlockPopups] = useState(true);
   const s = sel.current;
   return (
     <>
       <div className="wp">
         <iframe
-          key={`${s.id}-${blockPopups}`}
+          key={s.id}
           src={s.url}
           title="Video player"
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
           allowFullScreen
           referrerPolicy="origin"
-          {...(blockPopups ? { sandbox: 'allow-scripts allow-same-origin allow-presentation allow-forms' } : {})}
         />
       </div>
-      <div className="wp-bar">
-        <label className="switch">
-          <input type="checkbox" checked={blockPopups} onChange={(e) => setBlockPopups(e.target.checked)} />
-          <span>Block pop-ups</span>
-        </label>
-      </div>
       <p className="small muted">
-        Video not playing? Try another server, or turn off “Block pop-ups”.
+        Video not playing? Try another server.
         {hasSubs && ' Subtitles and volume boost work on servers that use the Watchora player.'}
       </p>
     </>

@@ -11,7 +11,6 @@ export function pickLink(raw) {
 export function toEmbedUrl(raw) {
   return pickLink(raw)
     .replace(/(streamtape\.\w+)\/v\//i, '$1/e/')
-    .replace(/(vidara\.\w+)\/v\//i, '$1/e/')
     .replace(/(dood\w*\.\w+)\/d\//i, '$1/e/')
     .replace(/(filemoon\.\w+)\/d\//i, '$1/e/')
     .replace(/(dailymotion\.com)\/video\//i, '$1/embed/video/')
