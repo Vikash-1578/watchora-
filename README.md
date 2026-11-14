@@ -15,6 +15,9 @@ Watch movies, web series, anime, drama and TV serials. No sign-up for viewers.
 - Output directory: `dist` (also set in `wrangler.toml`)
 - D1 binding `DB` → `watchora-db` (set in `wrangler.toml`)
 - Secret: `ADMIN_PASSWORD` (Settings → Variables and Secrets, type "Secret")
+- Optional secret: `TMDB_API_KEY` turns on auto-fill in the admin panel (TMDB free keys are non-commercial)
+
+
 
 ## Local development
 

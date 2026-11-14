@@ -47,9 +47,18 @@ export const LANGUAGES = [
   'Bengali', 'Marathi', 'Punjabi', 'Korean', 'Japanese', 'Chinese', 'Other',
 ];
 
+export const CERTIFICATES = ['U', 'UA 7+', 'UA 13+', 'UA 16+', 'A'];
+export const STATUSES = ['Released', 'Ongoing', 'Completed', 'Upcoming'];
+export const QUALITIES = ['480p', '720p', '1080p', '4K'];
+export const COUNTRIES = [
+  'India', 'United States', 'United Kingdom', 'South Korea', 'Japan', 'China', 'Turkey', 'Pakistan',
+  'Spain', 'France', 'Germany', 'Canada', 'Australia', 'Thailand', 'Other',
+];
+
 export const GENRES = [
   'Action', 'Comedy', 'Drama', 'Romance', 'Thriller', 'Horror', 'Crime',
   'Mystery', 'Sci-Fi', 'Fantasy', 'Family', 'Adventure', 'Animation', 'Documentary',
+  'Biography', 'History', 'Musical', 'Sports', 'War', 'Supernatural', 'Slice of Life', 'Mecha', 'Isekai',
 ];
 
 export const catBySlug = (slug) => ALL_CATEGORIES.find((c) => c.slug === slug);

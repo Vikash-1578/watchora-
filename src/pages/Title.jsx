@@ -4,7 +4,7 @@ import { api } from '../api.js';
 import { useLoad, useTitle } from '../hooks.js';
 import { catBySlug, isEpisodic } from '../config.js';
 import { history, watchlist } from '../local.js';
-import { Poster, Empty, SafeImg } from '../components/Cards.jsx';
+import { Poster, Empty, SafeImg, Row } from '../components/Cards.jsx';
 import Player from '../components/Player.jsx';
 import NotFound from './NotFound.jsx';
 
@@ -12,9 +12,16 @@ export function TitleView({ slug, adult = false }) {
   const { data: t, error, loading } = useLoad(() => api.title(slug), [slug]);
   const [params, setParams] = useSearchParams();
   const [saved, setSaved] = useState(false);
+  const [trailer, setTrailer] = useState(false);
   useTitle(t?.name);
 
   useEffect(() => { if (t) setSaved(watchlist.has(t.slug)); }, [t]);
+  useEffect(() => {
+    if (!trailer) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setTrailer(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [trailer]);
 
   const seasons = useMemo(() => {
     if (!t) return [];
@@ -36,6 +43,11 @@ export function TitleView({ slug, adult = false }) {
   const sources = t.sources.filter((s) => (episodic ? s.episode_id === episode.id : !s.episode_id));
   const cat = catBySlug(t.category);
   const genres = t.genres ? t.genres.split(',') : [];
+  const audio = t.audio ? t.audio.split(',') : [];
+  const cast = t.cast_list ? t.cast_list.split(',') : [];
+  const subs = t.subtitles ? t.subtitles.split(',') : [];
+  const ytId = (String(t.trailer || '').match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) || [])[1];
+  const runtime = t.runtime ? `${t.runtime >= 60 ? `${Math.floor(t.runtime / 60)}h ` : ''}${t.runtime % 60 ? `${t.runtime % 60}m` : ''}`.trim() : '';
 
   const pickEpisode = (e) => {
     setParams({ s: String(e.season), ep: String(e.id) }, { replace: true });
@@ -57,11 +69,21 @@ export function TitleView({ slug, adult = false }) {
             </p>
             <h1 className="detail-title">{t.name}</h1>
             <ul className="facts">
+              {t.imdb_rating ? <li className="rating" aria-label={`Rated ${t.imdb_rating} out of 10`}>★ {t.imdb_rating}</li> : null}
               {t.year && <li>{t.year}</li>}
-              {t.language && <li>{t.language}</li>}
+              {runtime && <li>{runtime}{episodic ? ' per episode' : ''}</li>}
               {t.certificate && <li className="cert">{t.certificate}</li>}
+              {t.quality && <li className="cert">{t.quality}</li>}
               {episodic && <li>{seasons.length} season{seasons.length > 1 ? 's' : ''}, {t.episodes.length} episode{t.episodes.length > 1 ? 's' : ''}</li>}
+              {t.status && t.status !== 'Released' && <li>{t.status}</li>}
             </ul>
+            {(audio.length > 0 || t.language) && (
+              <p className="audio">
+                {audio.length > 1 && <span className="audio-badge">{audio.length > 2 ? 'Multi audio' : 'Dual audio'}</span>}
+                {(audio.length ? audio : [t.language]).join(', ')}
+                {subs.length > 0 && <span className="muted">  |  Subtitles: {subs.join(', ')}</span>}
+              </p>
+            )}
             {genres.length > 0 && (
               <p className="genres">{genres.join(', ')}</p>
             )}
@@ -71,6 +93,9 @@ export function TitleView({ slug, adult = false }) {
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>
                 {episode ? `Play S${episode.season} E${episode.episode}` : 'Play'}
               </a>
+              {ytId && (
+                <button type="button" className="btn btn-ghost" onClick={() => setTrailer(true)}>Trailer</button>
+              )}
               <button type="button" className="btn btn-ghost" aria-pressed={saved} onClick={() => setSaved(watchlist.toggle(t))}>
                 {saved ? 'Saved to my list' : 'Add to my list'}
               </button>
@@ -86,6 +111,15 @@ export function TitleView({ slug, adult = false }) {
             heading={episode ? `S${episode.season} E${episode.episode}${episode.name ? `: ${episode.name}` : ''}` : t.name}
           />
         </section>
+
+        {trailer && ytId && (
+          <div className="modal" role="dialog" aria-modal="true" aria-label={`${t.name} trailer`} onClick={() => setTrailer(false)}>
+            <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="modal-close" onClick={() => setTrailer(false)} aria-label="Close trailer">×</button>
+              <iframe src={`https://www.youtube.com/embed/${ytId}?autoplay=1`} title={`${t.name} trailer`} allow="autoplay; fullscreen" allowFullScreen />
+            </div>
+          </div>
+        )}
 
         {episodic && (
           <section className="episodes">
@@ -112,14 +146,32 @@ export function TitleView({ slug, adult = false }) {
                     aria-current={episode?.id === e.id ? 'true' : undefined}
                     onClick={() => pickEpisode(e)}
                   >
-                    <span className="ep-no">{e.episode}</span>
-                    <span className="ep-name">{e.name || `Episode ${e.episode}`}</span>
+                    {e.thumbnail ? <span className="ep-thumb"><SafeImg src={e.thumbnail} alt="" loading="lazy" /></span> : <span className="ep-no">{e.episode}</span>}
+                    <span className="ep-text">
+                      <span className="ep-name">{e.thumbnail ? `${e.episode}. ` : ''}{e.name || `Episode ${e.episode}`}</span>
+                      {(e.runtime || e.air_date) && <span className="ep-meta">{[e.runtime && `${e.runtime}m`, e.air_date].filter(Boolean).join('  |  ')}</span>}
+                    </span>
                   </button>
                 </li>
               ))}
             </ol>
           </section>
         )}
+
+        {(cast.length > 0 || t.director || t.studio || t.country) && (
+          <section className="credits">
+            <h2>Cast & crew</h2>
+            <dl>
+              {cast.length > 0 && <><dt>Cast</dt><dd>{cast.join(', ')}</dd></>}
+              {t.director && <><dt>{episodic ? 'Created by' : 'Director'}</dt><dd>{t.director}</dd></>}
+              {t.studio && <><dt>{episodic ? 'Network' : 'Studio'}</dt><dd>{t.studio}</dd></>}
+              {t.country && <><dt>Country</dt><dd>{t.country}</dd></>}
+              {t.original_name && <><dt>Original title</dt><dd>{t.original_name}</dd></>}
+            </dl>
+          </section>
+        )}
+
+        {t.related?.length > 0 && <Row title="More like this" items={t.related} />}
       </div>
     </article>
   );

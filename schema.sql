@@ -1,18 +1,33 @@
--- Watchora database (Cloudflare D1)
+-- Watchora database (Cloudflare D1). Fresh install: run this whole file.
 CREATE TABLE IF NOT EXISTS titles (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  original_name TEXT DEFAULT '',
   category TEXT NOT NULL,            -- movies | web-series | anime | drama | serials | adult
   subcategory TEXT DEFAULT '',
-  language TEXT DEFAULT '',
+  language TEXT DEFAULT '',          -- original language
+  audio TEXT DEFAULT '',             -- comma separated audio languages (dual audio etc.)
+  subtitles TEXT DEFAULT '',         -- comma separated
   genres TEXT DEFAULT '',            -- comma separated
+  tags TEXT DEFAULT '',              -- comma separated search keywords
   year INTEGER,
-  certificate TEXT DEFAULT '',       -- U, UA, A
+  release_date TEXT DEFAULT '',
+  runtime INTEGER,                   -- minutes (movie) or per-episode
+  country TEXT DEFAULT '',
+  certificate TEXT DEFAULT '',       -- U, UA 7+, UA 13+, UA 16+, A
+  status TEXT DEFAULT '',            -- Released | Ongoing | Completed | Upcoming
+  quality TEXT DEFAULT '',           -- 480p | 720p | 1080p | 4K
+  imdb_rating REAL,
+  cast_list TEXT DEFAULT '',         -- comma separated
+  director TEXT DEFAULT '',
+  studio TEXT DEFAULT '',
   is_adult INTEGER NOT NULL DEFAULT 0,
   description TEXT DEFAULT '',
   poster TEXT DEFAULT '',            -- image URL (2:3)
   backdrop TEXT DEFAULT '',          -- wide image URL (16:9)
+  trailer TEXT DEFAULT '',           -- YouTube link
+  tmdb_id INTEGER,
   featured INTEGER NOT NULL DEFAULT 0,
   published INTEGER NOT NULL DEFAULT 1,
   views INTEGER NOT NULL DEFAULT 0,
@@ -28,6 +43,10 @@ CREATE TABLE IF NOT EXISTS episodes (
   season INTEGER NOT NULL DEFAULT 1,
   episode INTEGER NOT NULL,
   name TEXT DEFAULT '',
+  overview TEXT DEFAULT '',
+  thumbnail TEXT DEFAULT '',
+  runtime INTEGER,
+  air_date TEXT DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(title_id, season, episode)
 );

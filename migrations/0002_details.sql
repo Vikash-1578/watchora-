@@ -1,0 +1,20 @@
+-- Upgrade for databases created before the detailed admin panel (Nov 2026)
+ALTER TABLE titles ADD COLUMN original_name TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN audio TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN subtitles TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN tags TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN release_date TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN runtime INTEGER;
+ALTER TABLE titles ADD COLUMN country TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN status TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN quality TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN imdb_rating REAL;
+ALTER TABLE titles ADD COLUMN cast_list TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN director TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN studio TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN trailer TEXT DEFAULT '';
+ALTER TABLE titles ADD COLUMN tmdb_id INTEGER;
+ALTER TABLE episodes ADD COLUMN overview TEXT DEFAULT '';
+ALTER TABLE episodes ADD COLUMN thumbnail TEXT DEFAULT '';
+ALTER TABLE episodes ADD COLUMN runtime INTEGER;
+ALTER TABLE episodes ADD COLUMN air_date TEXT DEFAULT '';

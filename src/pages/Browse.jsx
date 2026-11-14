@@ -83,6 +83,8 @@ export default function Browse({ category, subs, adult = false, q = '', emptyTex
               <option value="new">Newest</option>
               <option value="popular">Most watched</option>
               <option value="year">Release year</option>
+              <option value="rating">Top rated</option>
+              <option value="name">Name A–Z</option>
             </select>
           </label>
         </div>
