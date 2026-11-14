@@ -24,18 +24,14 @@ export function TitleView({ slug, adult = false }) {
   const [moreText, setMoreText] = useState(false);
   const [allCast, setAllCast] = useState(false);
   const watchRef = useRef(null);
+  const fsRef = useRef(null); // always on the page, so full screen can start inside the click
   const wasFull = useRef(false);
   useTitle(t?.name);
 
   // Watch now opens the player full screen. Leaving full screen (or Esc / Close) closes the player.
   useEffect(() => {
     if (!watching) return undefined;
-    const el = watchRef.current;
     const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const enter = el && (el.requestFullscreen || el.webkitRequestFullscreen);
-    if (enter && !isFull()) {
-      Promise.resolve(enter.call(el)).then(() => { wasFull.current = true; }).catch(() => {});
-    }
     const onChange = () => {
       if (isFull()) { wasFull.current = true; return; }
       if (wasFull.current) { wasFull.current = false; setWatching(false); }
@@ -54,6 +50,15 @@ export function TitleView({ slug, adult = false }) {
       wasFull.current = false;
     };
   }, [watching]);
+
+  // must run inside the click itself, or the browser refuses full screen
+  const goFull = () => {
+    const el = fsRef.current;
+    const enter = el && (el.requestFullscreen || el.webkitRequestFullscreen);
+    if (enter && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+      try { Promise.resolve(enter.call(el)).then(() => { wasFull.current = true; }).catch(() => {}); } catch { /* not allowed */ }
+    }
+  };
 
   const closePlayer = () => {
     if (document.fullscreenElement || document.webkitFullscreenElement) {
@@ -104,12 +109,14 @@ export function TitleView({ slug, adult = false }) {
   const nextEp = episodic ? t.episodes[epIndex + 1] : null;
 
   const startWatching = () => {
+    goFull();
     setWatching(true);
     setDownloads(false);
     history.add(t, episode);
   };
   const pickEpisode = (e) => {
     setParams({ s: String(e.season), ep: String(e.id) }, { replace: true });
+    goFull();
     setWatching(true);
     history.add(t, e);
   };
@@ -225,6 +232,7 @@ export function TitleView({ slug, adult = false }) {
           </div>
         </div>
 
+        <div ref={fsRef} className="watch-fs">
         {watching && (
           <section id="watch" ref={watchRef} className="watch-overlay" role="dialog" aria-modal="true" aria-label={`Watching ${t.name}`}>
             <div className="watch-top">
@@ -247,6 +255,7 @@ export function TitleView({ slug, adult = false }) {
             )}
           </section>
         )}
+        </div>
 
         {trailer && t.trailer && (
           <div className="modal" role="dialog" aria-modal="true" aria-label={`${t.name} trailer`} onClick={() => setTrailer(false)}>
