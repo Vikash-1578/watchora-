@@ -40,7 +40,14 @@ function useSelection(sources) {
   const [serverId, setServerId] = useState(null);
   const current = servers.find((s) => s.id === serverId) || servers[0] || sources[0];
 
+  const pick = (src) => {
+    if (src.audio) { setAudio(src.audio); write('wc_audio', src.audio); }
+    if (src.quality) { setQuality(src.quality); write('wc_quality', src.quality); }
+    setServerId(src.id);
+  };
+
   return {
+    pick,
     audios, audio, setAudio: (a) => { setAudio(a); write('wc_audio', a); setServerId(null); },
     qualities, quality: q, setQuality: (x) => { setQuality(x); write('wc_quality', x); setServerId(null); },
     servers, current, setServerId,
@@ -50,6 +57,7 @@ function useSelection(sources) {
 export default function WatchPlayer({ sources, subtitles = [], poster, heading, progressKey, onEnded }) {
   const sel = useSelection(sources || []);
   const resumeAt = useRef(null); // keeps the position when switching quality, audio or server
+  const liveTime = useRef({ t: 0, play: false });
   if (!sources?.length) {
     return (
       <div className="wp wp-empty">
@@ -61,8 +69,33 @@ export default function WatchPlayer({ sources, subtitles = [], poster, heading, 
     <div className="wp-wrap">
       {heading && <p className="player-heading">{heading}</p>}
       {sel.current.kind === 'file' || sel.current.kind === 'hls'
-        ? <NativePlayer key={sel.current.id} resumeAt={resumeAt} sel={sel} subtitles={subtitles} poster={poster} progressKey={progressKey} onEnded={onEnded} />
+        ? <NativePlayer key={sel.current.id} resumeAt={resumeAt} liveTime={liveTime} sel={sel} subtitles={subtitles} poster={poster} progressKey={progressKey} onEnded={onEnded} />
         : <EmbedPlayer sel={sel} hasSubs={subtitles.length > 0} />}
+      {sources.length > 1 && (
+        <div className="wp-servers" role="radiogroup" aria-label="Servers">
+          <span className="wp-group-label">Servers</span>
+          {sources.map((x) => {
+            const on = x.id === sel.current.id;
+            return (
+              <button
+                key={x.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                className={`srv ${on ? 'on' : ''}`}
+                onClick={() => {
+                  if (on) return;
+                  if (sel.current.kind !== 'embed') resumeAt.current = { ...liveTime.current };
+                  sel.pick(x);
+                }}
+              >
+                <span className="srv-name">{x.label}</span>
+                {(x.quality || x.audio) && <span className="srv-meta">{[x.quality, x.audio].filter(Boolean).join(' | ')}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -85,21 +118,6 @@ function EmbedPlayer({ sel, hasSubs }) {
         />
       </div>
       <div className="wp-bar">
-        {sel.audios.length > 1 && (
-          <ChipGroup label="Audio" options={sel.audios} value={sel.audio} onChange={sel.setAudio} />
-        )}
-        {sel.qualities.length > 1 && (
-          <ChipGroup label="Quality" options={sel.qualities} value={sel.quality} onChange={sel.setQuality} />
-        )}
-        {sel.servers.length > 1 && (
-          <ChipGroup
-            label="Server"
-            options={sel.servers.map((x) => x.id)}
-            names={Object.fromEntries(sel.servers.map((x) => [x.id, x.label]))}
-            value={s.id}
-            onChange={sel.setServerId}
-          />
-        )}
         <label className="switch">
           <input type="checkbox" checked={blockPopups} onChange={(e) => setBlockPopups(e.target.checked)} />
           <span>Block pop-ups</span>
@@ -113,21 +131,8 @@ function EmbedPlayer({ sel, hasSubs }) {
   );
 }
 
-function ChipGroup({ label, options, names, value, onChange }) {
-  return (
-    <div className="wp-group" role="radiogroup" aria-label={label}>
-      <span className="wp-group-label">{label}</span>
-      {options.map((o) => (
-        <button key={o} type="button" role="radio" aria-checked={o === value} className={`server ${o === value ? 'on' : ''}`} onClick={() => onChange(o)}>
-          {names?.[o] || o}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // ---------- our own player ----------
-function NativePlayer({ sel, subtitles, poster, progressKey, onEnded, resumeAt }) {
+function NativePlayer({ sel, subtitles, poster, progressKey, onEnded, resumeAt, liveTime }) {
   const src = sel.current;
   const boxRef = useRef(null);
   const videoRef = useRef(null);
@@ -301,6 +306,7 @@ function NativePlayer({ sel, subtitles, poster, progressKey, onEnded, resumeAt }
     onTimeUpdate: (e) => {
       const v = e.currentTarget;
       setTime(v.currentTime);
+      liveTime.current = { t: v.currentTime, play: !v.paused };
       if (v.buffered.length) setBuffered(v.buffered.end(v.buffered.length - 1));
       if (progressKey && Math.floor(v.currentTime) % 5 === 0) {
         write(`wc_pos_${progressKey}`, v.duration - v.currentTime > 60 ? v.currentTime : 0);

@@ -360,7 +360,7 @@ select {
 .dl-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .dl-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); text-decoration: none; }
 .dl-item:hover { border-color: var(--gold); }
-.dl-q { font-weight: 700; min-width: 56px; color: var(--gold); }
+.dl-q { font-weight: 700; min-width: 80px; color: var(--gold); }
 .dl-info { flex: 1; color: var(--muted); font-size: 0.9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dl-go { font-size: 1.2rem; }
 .watch { margin-top: 28px; scroll-margin-top: 110px; }
@@ -377,3 +377,10 @@ select {
   .d-actions { display: grid; grid-template-columns: 1fr 1fr 46px; }
   .d-actions .btn { padding: 0 12px; }
 }
+
+.wp-servers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.srv { display: grid; text-align: left; padding: 7px 14px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); cursor: pointer; line-height: 1.25; }
+.srv:hover { border-color: var(--muted); }
+.srv.on { border-color: var(--gold); background: var(--gold-soft); }
+.srv-name { font-weight: 600; }
+.srv-meta { font-size: 0.78rem; color: var(--muted); }

@@ -52,7 +52,7 @@ export function TitleView({ slug, adult = false }) {
   const dl = sources
     .filter((s) => s.download_url || s.kind === 'file')
     .map((s) => ({ ...s, href: s.download_url || s.url }))
-    .sort((a, b) => qNum(b.quality) - qNum(a.quality));
+    .sort((a, b) => a.sort - b.sort || qNum(b.quality) - qNum(a.quality));
 
   const cat = catBySlug(t.category);
   const genres = split(t.genres);
@@ -177,8 +177,8 @@ export function TitleView({ slug, adult = false }) {
                     {dl.map((s) => (
                       <li key={s.id}>
                         <a href={s.href} target="_blank" rel="noopener noreferrer nofollow" download className="dl-item">
-                          <span className="dl-q">{s.quality || 'Video'}</span>
-                          <span className="dl-info">{[s.audio, s.size, s.label].filter(Boolean).join('  |  ')}</span>
+                          <span className="dl-q">{s.label}</span>
+                          <span className="dl-info">{[s.quality, s.audio, s.size].filter(Boolean).join('  |  ') || 'Download'}</span>
                           <span className="dl-go" aria-hidden="true">↓</span>
                         </a>
                       </li>
