@@ -72,13 +72,13 @@ export function TitleView({ slug, adult = false }) {
     setWatching(true);
     setDownloads(false);
     history.add(t, episode);
-    requestAnimationFrame(() => watchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   };
   const pickEpisode = (e) => {
     setParams({ s: String(e.season), ep: String(e.id) }, { replace: true });
     setWatching(true);
     history.add(t, e);
-    requestAnimationFrame(() => watchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   };
 
   const castShown = allCast ? cast : cast.slice(0, 6);
@@ -89,6 +89,29 @@ export function TitleView({ slug, adult = false }) {
         <div className="detail-bg" aria-hidden="true"><SafeImg src={t.backdrop || t.poster} alt="" /></div>
       )}
       <div className="page">
+        {watching && (
+          <section id="watch" ref={watchRef} className="watch watch-top-slot">
+            <div className="watch-bar">
+              <h1 className="watch-title">{t.name}</h1>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setWatching(false)}>Show details</button>
+            </div>
+            <WatchPlayer
+              key={itemId || 'movie'}
+              sources={sources}
+              subtitles={subtitles}
+              poster={t.backdrop || ''}
+              heading={episode ? `S${episode.season} E${episode.episode}${episode.name ? `: ${episode.name}` : ''}` : null}
+              progressKey={`${t.slug}-${itemId || 'm'}`}
+              onEnded={nextEp ? () => pickEpisode(nextEp) : undefined}
+            />
+            {nextEp && (
+              <button type="button" className="btn btn-ghost next-ep" onClick={() => pickEpisode(nextEp)}>
+                Next: S{nextEp.season} E{nextEp.episode}{nextEp.name ? ` ${nextEp.name}` : ''} ›
+              </button>
+            )}
+          </section>
+        )}
+        {!watching && (
         <div className="d-head">
           <Poster t={t} size="lg" />
           <div className="d-info">
@@ -191,24 +214,6 @@ export function TitleView({ slug, adult = false }) {
             )}
           </div>
         </div>
-
-        {watching && (
-          <section id="watch" ref={watchRef} className="watch">
-            <WatchPlayer
-              key={itemId || 'movie'}
-              sources={sources}
-              subtitles={subtitles}
-              poster={t.backdrop || ''}
-              heading={episode ? `S${episode.season} E${episode.episode}${episode.name ? `: ${episode.name}` : ''}` : null}
-              progressKey={`${t.slug}-${itemId || 'm'}`}
-              onEnded={nextEp ? () => pickEpisode(nextEp) : undefined}
-            />
-            {nextEp && (
-              <button type="button" className="btn btn-ghost next-ep" onClick={() => pickEpisode(nextEp)}>
-                Next: S{nextEp.season} E{nextEp.episode}{nextEp.name ? ` ${nextEp.name}` : ''} ›
-              </button>
-            )}
-          </section>
         )}
 
         {trailer && t.trailer && (
