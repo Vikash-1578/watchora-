@@ -14,7 +14,7 @@ import { Sources, Episodes } from './Videos.jsx';
 const EMPTY = {
   name: '', original_name: '', slug: '', category: 'movies', subcategory: '', language: 'Hindi', audio: 'Hindi',
   subtitles: '', genres: '', tags: '', year: '', release_date: '', runtime: '', country: 'India', certificate: '',
-  status: '', quality: '', imdb_rating: '', cast_list: '', director: '', studio: '', description: '',
+  status: '', quality: '', imdb_rating: '', description: '',
   poster: '', backdrop: '', trailer: '', tmdb_id: '', featured: false, published: true,
 };
 
@@ -30,7 +30,6 @@ const fromTitle = (t) => {
 const SECTIONS = [
   ['basic', 'Basic info'],
   ['details', 'Language & genres'],
-  ['people', 'Cast & crew'],
   ['media', 'Poster & trailer'],
   ['publish', 'Publishing'],
   ['videos', 'Videos'],
@@ -252,18 +251,6 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
             </Field>
             <Field label="URL slug" hint="Made from the name if empty.">
               <input className="a-input" value={form.slug} onChange={set('slug')} placeholder="mirzapur-2018" />
-            </Field>
-          </div>
-        </Section>
-
-        <Section id="sec-people" title="Cast & crew" desc="Cast = the actors. Crew = the people who made it (director, studio). Shown on the title page, and viewers can search by an actor's name.">
-          <div className="form-grid">
-            <TagInput label="Cast" value={form.cast_list} onChange={set('cast_list')} span={4} placeholder="Type a name and press Enter" />
-            <Field label={episodic ? 'Creator / director' : 'Director'} span={2}>
-              <input className="a-input" value={form.director} onChange={set('director')} />
-            </Field>
-            <Field label={episodic ? 'Studio / channel' : 'Studio'} span={2}>
-              <input className="a-input" value={form.studio} onChange={set('studio')} />
             </Field>
           </div>
         </Section>

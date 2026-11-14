@@ -122,9 +122,9 @@ async function listTitles(env, url) {
   if (genre) { where.push("(',' || genres || ',') LIKE ?"); args.push(`%,${genre},%`); }
   const q = (p.get('q') || '').trim().slice(0, 80);
   if (q) {
-    where.push('(name LIKE ? OR original_name LIKE ? OR tags LIKE ? OR cast_list LIKE ? OR director LIKE ? OR genres LIKE ?)');
+    where.push('(name LIKE ? OR original_name LIKE ? OR tags LIKE ? OR genres LIKE ?)');
     const like = `%${q}%`;
-    args.push(like, like, like, like, like, like);
+    args.push(like, like, like, like);
   }
 
   const sorts = { popular: 'views DESC', year: 'year DESC', rating: 'imdb_rating DESC', name: 'name COLLATE NOCASE ASC' };

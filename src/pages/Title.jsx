@@ -45,7 +45,6 @@ export function TitleView({ slug, adult = false }) {
   const cat = catBySlug(t.category);
   const genres = t.genres ? t.genres.split(',') : [];
   const audio = t.audio ? t.audio.split(',') : [];
-  const cast = t.cast_list ? t.cast_list.split(',') : [];
   const subs = t.subtitles ? t.subtitles.split(',') : [];
   const runtime = t.runtime ? `${t.runtime >= 60 ? `${Math.floor(t.runtime / 60)}h ` : ''}${t.runtime % 60 ? `${t.runtime % 60}m` : ''}`.trim() : '';
 
@@ -160,19 +159,6 @@ export function TitleView({ slug, adult = false }) {
                 </li>
               ))}
             </ol>
-          </section>
-        )}
-
-        {(cast.length > 0 || t.director || t.studio || t.country) && (
-          <section className="credits">
-            <h2>Cast & crew</h2>
-            <dl>
-              {cast.length > 0 && <><dt>Cast</dt><dd>{cast.join(', ')}</dd></>}
-              {t.director && <><dt>{episodic ? 'Created by' : 'Director'}</dt><dd>{t.director}</dd></>}
-              {t.studio && <><dt>{episodic ? 'Network' : 'Studio'}</dt><dd>{t.studio}</dd></>}
-              {t.country && <><dt>Country</dt><dd>{t.country}</dd></>}
-              {t.original_name && <><dt>Original title</dt><dd>{t.original_name}</dd></>}
-            </dl>
           </section>
         )}
 
