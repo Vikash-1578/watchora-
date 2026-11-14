@@ -19,47 +19,12 @@ export function TitleView({ slug, adult = false }) {
   const [params, setParams] = useSearchParams();
   const [saved, setSaved] = useState(false);
   const [trailer, setTrailer] = useState(false);
-  const [watching, setWatching] = useState(() => params.get('play') === '1');
+  const [watching, setWatching] = useState(() => params.has('ep') || params.get('play') === '1');
   const [downloads, setDownloads] = useState(false);
   const [moreText, setMoreText] = useState(false);
   const [allCast, setAllCast] = useState(false);
   const watchRef = useRef(null);
-  const wasFull = useRef(false);
   useTitle(t?.name);
-
-  // Watch now opens the player full screen. Leaving full screen (or Esc / Close) closes the player.
-  useEffect(() => {
-    if (!watching) return undefined;
-    const el = watchRef.current;
-    const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const enter = el && (el.requestFullscreen || el.webkitRequestFullscreen);
-    if (enter && !isFull()) {
-      Promise.resolve(enter.call(el)).then(() => { wasFull.current = true; }).catch(() => {});
-    }
-    const onChange = () => {
-      if (isFull()) { wasFull.current = true; return; }
-      if (wasFull.current) { wasFull.current = false; setWatching(false); }
-    };
-    const onKey = (e) => { if (e.key === 'Escape' && !isFull()) setWatching(false); };
-    document.addEventListener('fullscreenchange', onChange);
-    document.addEventListener('webkitfullscreenchange', onChange);
-    window.addEventListener('keydown', onKey);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('fullscreenchange', onChange);
-      document.removeEventListener('webkitfullscreenchange', onChange);
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = overflow;
-      wasFull.current = false;
-    };
-  }, [watching]);
-
-  const closePlayer = () => {
-    if (document.fullscreenElement || document.webkitFullscreenElement) {
-      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    } else setWatching(false);
-  };
 
   useEffect(() => { if (t) setSaved(watchlist.has(t.slug)); }, [t]);
   useEffect(() => {
@@ -107,11 +72,13 @@ export function TitleView({ slug, adult = false }) {
     setWatching(true);
     setDownloads(false);
     history.add(t, episode);
+    requestAnimationFrame(() => watchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const pickEpisode = (e) => {
     setParams({ s: String(e.season), ep: String(e.id) }, { replace: true });
     setWatching(true);
     history.add(t, e);
+    requestAnimationFrame(() => watchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
   const castShown = allCast ? cast : cast.slice(0, 6);
@@ -226,11 +193,7 @@ export function TitleView({ slug, adult = false }) {
         </div>
 
         {watching && (
-          <section id="watch" ref={watchRef} className="watch-overlay" role="dialog" aria-modal="true" aria-label={`Watching ${t.name}`}>
-            <div className="watch-top">
-              <span className="watch-name">{t.name}</span>
-              <button type="button" className="watch-close" onClick={closePlayer} aria-label="Close player">✕ Close</button>
-            </div>
+          <section id="watch" ref={watchRef} className="watch">
             <WatchPlayer
               key={itemId || 'movie'}
               sources={sources}
