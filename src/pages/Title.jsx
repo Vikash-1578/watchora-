@@ -9,6 +9,8 @@ import WatchPlayer from '../components/WatchPlayer.jsx';
 import { TrailerPlayer } from '../components/Trailer.jsx';
 import NotFound from './NotFound.jsx';
 
+// related rows only show titles that have a poster
+const withPoster = (list) => (list || []).filter((x) => x.poster);
 const split = (v) => (v ? String(v).split(',').map((x) => x.trim()).filter(Boolean) : []);
 const qNum = (q) => (q === '4K' ? 2160 : parseInt(q, 10) || 0);
 
@@ -271,10 +273,10 @@ export function TitleView({ slug, adult = false }) {
           </section>
         )}
 
-        {!episodic && !t.parts?.length && t.byCast?.length > 0 && (
-          <Row title={`More with ${t.castShown?.join(' & ') || 'this cast'}`} items={t.byCast} />
+        {!episodic && !t.parts?.length && withPoster(t.byCast).length > 0 && (
+          <Row title={`More with ${t.castShown?.join(' & ') || 'this cast'}`} items={withPoster(t.byCast)} />
         )}
-        {t.byGenre?.length > 0 && <Row title="More like this" items={t.byGenre} />}
+        {withPoster(t.byGenre).length > 0 && <Row title="More like this" items={withPoster(t.byGenre)} />}
       </div>
     </article>
   );
