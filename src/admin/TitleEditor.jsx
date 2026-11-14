@@ -139,7 +139,7 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
       </div>
 
       <nav className="editor-nav" aria-label="Sections">
-        {SECTIONS.filter(([k]) => k !== 'videos' || full).map(([k, label]) => (
+        {SECTIONS.map(([k, label]) => (
           <a key={k} href={`#sec-${k}`}>{label}</a>
         ))}
       </nav>
@@ -332,13 +332,19 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
         {error && <p className="error" role="alert">{error}</p>}
 
         <div className={`save-bar ${dirty || !id ? 'show' : ''}`}>
-          <span className="muted">{id ? (dirty ? 'You have unsaved changes' : 'All changes saved') : 'New title'}</span>
+          <span className="muted">{id ? (dirty ? 'You have unsaved changes' : 'All changes saved') : 'Step 1: fill the details, then create. Step 2: add video links.'}</span>
           {id && dirty && <button type="button" className="link-btn" onClick={() => setForm(saved)}>Undo changes</button>}
           <button type="submit" className="btn btn-primary" disabled={busy || (id && !dirty)}>
             {busy ? 'Saving…' : id ? 'Save changes' : 'Create title'}
           </button>
         </div>
       </form>
+
+      {!full && (
+        <Section id="sec-videos" title="Video servers" desc="Step 2">
+          <p className="note-warn">First press <strong>Create title</strong> above. The video link boxes appear here right after that.</p>
+        </Section>
+      )}
 
       {full && (
         <Section
