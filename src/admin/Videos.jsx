@@ -2,10 +2,25 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { QUALITIES } from '../config.js';
 import { useToast, ConfirmButton, Field } from './ui.jsx';
+import { ALL_LANGUAGES } from '../languages.js';
 
 import { toEmbedUrl } from '../embed.js';
 
 export { toEmbedUrl };
+
+const isOwnPlayer = (url) => /\.(m3u8|mp4|webm|m4v|mov|ogv|mkv)(\?.*)?$/i.test(String(url || ''));
+const titleAudios = (t) => (t.audio ? t.audio.split(',').filter(Boolean) : t.language ? [t.language] : []);
+
+function AudioSelect({ value, onChange, t }) {
+  const mine = titleAudios(t);
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Not set</option>
+      {mine.length > 0 && <optgroup label="This title's audio">{mine.map((l) => <option key={l}>{l}</option>)}</optgroup>}
+      <optgroup label="All languages">{ALL_LANGUAGES.filter((l) => !mine.includes(l)).map((l) => <option key={l}>{l}</option>)}</optgroup>
+    </select>
+  );
+}
 
 const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
@@ -16,6 +31,9 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
   const [url, setUrl] = useState('');
   const [label, setLabel] = useState('');
   const [quality, setQuality] = useState('');
+  const [audio, setAudio] = useState(() => titleAudios(t)[0] || '');
+  const [downloadUrl, setDownloadUrl] = useState('');
+  const [size, setSize] = useState('');
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -23,8 +41,8 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality });
-      setUrl(''); setLabel('');
+      await api.addSource({ title_id: t.id, episode_id: episodeId, url: toEmbedUrl(url), label: label || undefined, quality, audio, download_url: downloadUrl, size });
+      setUrl(''); setLabel(''); setDownloadUrl(''); setSize('');
       toast('Server added');
       reload();
     } catch (err) { toast(err.message, 'error'); onAuthError(err); } finally { setBusy(false); }
@@ -52,6 +70,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
             <SourceRow
               key={s.id}
               s={s}
+              t={t}
               first={i === 0}
               last={i === list.length - 1}
               onUp={() => move(i, -1)}
@@ -63,29 +82,47 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
           ))}
         </ol>
       )}
-      <form className="inline-form" onSubmit={add}>
-        <Field label="Video link" grow hint={url && toEmbedUrl(url) !== url.trim() ? `Will be saved as: ${toEmbedUrl(url)}` : 'Paste the embed or share link from your video host.'}>
-          <input className="a-input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://streamtape.com/v/…" required />
-        </Field>
-        <Field label="Server name">
-          <input className="a-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`Server ${list.length + 1}`} />
-        </Field>
-        <Field label="Quality">
-          <select value={quality} onChange={(e) => setQuality(e.target.value)}>
-            <option value="">Any</option>
-            {QUALITIES.map((q) => <option key={q}>{q}</option>)}
-          </select>
-        </Field>
-        <button type="submit" className="btn btn-primary" disabled={busy}>Add server</button>
+      <form className="source-form" onSubmit={add}>
+        <div className="inline-form">
+          <Field
+            label="Video link"
+            grow
+            hint={url && toEmbedUrl(url) !== url.trim()
+              ? `Will be saved as: ${toEmbedUrl(url)}`
+              : url && isOwnPlayer(url)
+                ? 'Direct video: plays in the Watchora player with quality, subtitles and volume boost.'
+                : 'Paste a .mp4 / .m3u8 link (Watchora player) or an embed/share link from your video host.'}
+          >
+            <input className="a-input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/movie-720p.mp4 or https://streamtape.com/v/…" required />
+          </Field>
+        </div>
+        <div className="inline-form">
+          <Field label="Audio language"><AudioSelect value={audio} onChange={setAudio} t={t} /></Field>
+          <Field label="Quality">
+            <select value={quality} onChange={(e) => setQuality(e.target.value)}>
+              <option value="">Not set</option>
+              {QUALITIES.map((q) => <option key={q}>{q}</option>)}
+            </select>
+          </Field>
+          <Field label="Server name"><input className="a-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={`Server ${list.length + 1}`} /></Field>
+        </div>
+        <div className="inline-form">
+          <Field label="Download link (optional)" grow hint="Leave empty to use the video link itself for .mp4 files.">
+            <input className="a-input" type="url" value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} placeholder="https://…" />
+          </Field>
+          <Field label="File size (optional)"><input className="a-input" value={size} onChange={(e) => setSize(e.target.value)} placeholder="1.2 GB" /></Field>
+          <button type="submit" className="btn btn-primary" disabled={busy}>Add server</button>
+        </div>
       </form>
+      <Subtitles t={t} episodeId={episodeId} reload={reload} />
     </div>
   );
 }
 
-function SourceRow({ s, first, last, onUp, onDown, onPreview, previewing, reload }) {
+function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, reload }) {
   const toast = useToast();
   const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState({ label: s.label, url: s.url, quality: s.quality || '' });
+  const [form, setForm] = useState({ label: s.label, url: s.url, quality: s.quality || '', audio: s.audio || '', download_url: s.download_url || '', size: s.size || '' });
 
   const save = async () => {
     try {
@@ -105,7 +142,11 @@ function SourceRow({ s, first, last, onUp, onDown, onPreview, previewing, reload
             <button type="button" onClick={onDown} disabled={last} aria-label="Move down">▼</button>
           </div>
           <div className="source-info">
-            <strong>{s.label}</strong>{s.quality && <span className="pill">{s.quality}</span>}
+            <strong>{s.label}</strong>
+            {s.kind === 'file' || s.kind === 'hls' ? <span className="kind kind-own">Watchora player</span> : <span className="kind kind-host">Host player</span>}
+            {s.audio && <span className="pill">{s.audio}</span>}
+            {s.quality && <span className="pill">{s.quality}</span>}
+            {(s.download_url || s.kind === 'file') && <span className="pill">Download{s.size ? ` ${s.size}` : ''}</span>}
             <span className="source-host">{hostOf(s.url)}</span>
             <span className="source-url">{s.url}</span>
           </div>
@@ -116,21 +157,30 @@ function SourceRow({ s, first, last, onUp, onDown, onPreview, previewing, reload
           </div>
         </div>
       ) : (
-        <div className="inline-form">
-          <Field label="Video link" grow><input className="a-input" type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
-          <Field label="Server name"><input className="a-input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></Field>
-          <Field label="Quality">
-            <select value={form.quality} onChange={(e) => setForm({ ...form, quality: e.target.value })}>
-              <option value="">Any</option>{QUALITIES.map((q) => <option key={q}>{q}</option>)}
-            </select>
-          </Field>
-          <button type="button" className="btn btn-primary" onClick={save}>Save</button>
-          <button type="button" className="link-btn" onClick={() => setEdit(false)}>Cancel</button>
+        <div className="source-form">
+          <div className="inline-form">
+            <Field label="Video link" grow><input className="a-input" type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
+          </div>
+          <div className="inline-form">
+            <Field label="Audio language"><AudioSelect value={form.audio} onChange={(v) => setForm({ ...form, audio: v })} t={t} /></Field>
+            <Field label="Quality">
+              <select value={form.quality} onChange={(e) => setForm({ ...form, quality: e.target.value })}>
+                <option value="">Not set</option>{QUALITIES.map((q) => <option key={q}>{q}</option>)}
+              </select>
+            </Field>
+            <Field label="Server name"><input className="a-input" value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} /></Field>
+          </div>
+          <div className="inline-form">
+            <Field label="Download link" grow><input className="a-input" type="url" value={form.download_url} onChange={(e) => setForm({ ...form, download_url: e.target.value })} placeholder="Optional" /></Field>
+            <Field label="File size"><input className="a-input" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} /></Field>
+            <button type="button" className="btn btn-primary" onClick={save}>Save</button>
+            <button type="button" className="link-btn" onClick={() => setEdit(false)}>Cancel</button>
+          </div>
         </div>
       )}
       {previewing && (
         <div className="source-preview">
-          <iframe src={s.url} title={`Test ${s.label}`} allowFullScreen allow="autoplay; fullscreen" />
+          {s.kind === 'file' ? <video src={s.url} controls playsInline /> : <iframe src={s.url} title={`Test ${s.label}`} allowFullScreen allow="autoplay; fullscreen" />}
           <p className="small muted">If the video plays here, it will play on the site.</p>
         </div>
       )}
@@ -243,6 +293,7 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
   const [text, setText] = useState('');
   const [label, setLabel] = useState('');
   const [quality, setQuality] = useState('');
+  const [audio, setAudio] = useState(() => titleAudios(t)[0] || '');
   const [busy, setBusy] = useState(false);
   const urls = text.split(/\s+/).map((x) => x.trim()).filter(Boolean);
 
@@ -250,7 +301,7 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
     e.preventDefault();
     setBusy(true);
     try {
-      const r = await api.addSources({ title_id: t.id, season, start_episode: start, urls: urls.map(toEmbedUrl), label: label || undefined, quality });
+      const r = await api.addSources({ title_id: t.id, season, start_episode: start, urls: urls.map(toEmbedUrl), label: label || undefined, quality, audio });
       toast(`Added ${r.added} link${r.added > 1 ? 's' : ''} to episodes ${r.from}–${r.to}`);
       done();
     } catch (err) { toast(err.message, 'error'); onAuthError(err); } finally { setBusy(false); }
@@ -266,6 +317,7 @@ function PasteLinks({ t, season, eps, done, toast, onAuthError }) {
       <div className="inline-form">
         <Field label="Season"><input className="a-input" value={season} disabled /></Field>
         <Field label="Start at episode"><input className="a-input" type="number" min="1" value={start} onChange={(e) => setStart(e.target.value)} /></Field>
+        <Field label="Audio language"><AudioSelect value={audio} onChange={setAudio} t={t} /></Field>
         <Field label="Server name"><input className="a-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Auto: Server 1, 2…" /></Field>
         <Field label="Quality">
           <select value={quality} onChange={(e) => setQuality(e.target.value)}>
@@ -343,5 +395,54 @@ function EpisodeRow({ ep, t, open, toggle, reload, onAuthError }) {
         </div>
       )}
     </li>
+  );
+}
+
+// ---------- subtitle files for a movie or one episode ----------
+function Subtitles({ t, episodeId, reload }) {
+  const toast = useToast();
+  const list = (t.subtitle_files || []).filter((x) => (x.episode_id || null) === episodeId);
+  const [language, setLanguage] = useState('English');
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const add = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.addSubtitle({ title_id: t.id, episode_id: episodeId, language, url });
+      setUrl('');
+      toast(`${language} subtitles added`);
+      reload();
+    } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="subs-admin">
+      <h3 className="sub-head">Subtitle files</h3>
+      <p className="small muted">Works with the Watchora player (.mp4 / .m3u8 servers). Paste a link to a .srt or .vtt file.</p>
+      {list.length > 0 && (
+        <ul>
+          {list.map((x) => (
+            <li key={x.id}>
+              <strong>{x.language}</strong>
+              <span className="source-url">{x.url}</span>
+              <ConfirmButton label="Remove" onConfirm={async () => { await api.deleteSubtitle(x.id); toast('Subtitle removed'); reload(); }} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="inline-form" onSubmit={add}>
+        <Field label="Language">
+          <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+            {ALL_LANGUAGES.filter((l) => l !== 'No dialogue (silent)').map((l) => <option key={l}>{l}</option>)}
+          </select>
+        </Field>
+        <Field label="Subtitle file link (.srt or .vtt)" grow>
+          <input className="a-input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/english.srt" required />
+        </Field>
+        <button type="submit" className="btn btn-ghost" disabled={busy}>Add subtitles</button>
+      </form>
+    </div>
   );
 }

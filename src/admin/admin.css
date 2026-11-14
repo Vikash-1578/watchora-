@@ -222,3 +222,17 @@ code { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 0
 .lp-item.on .lp-check, .lp-item.on .lp-radio { background: var(--gold); border-color: var(--gold); }
 
 .trailer-preview { display: grid; gap: 6px; max-width: 520px; }
+
+.tag-add { margin-left: auto; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--gold); background: transparent; color: var(--gold); cursor: pointer; font-weight: 600; }
+.tag-add:disabled { opacity: 0.4; cursor: default; }
+.kind { font-size: 0.75rem; padding: 1px 8px; border-radius: 4px; }
+.kind-own { background: var(--gold); color: var(--gold-ink); font-weight: 600; }
+.kind-host { border: 1px solid var(--line); color: var(--muted); }
+.subs-admin { margin-top: 18px; }
+.subs-admin ul { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
+.subs-admin li { display: flex; gap: 10px; align-items: center; padding: 8px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.subs-admin li .source-url { flex: 1; flex-basis: auto; }
+
+.source-form { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.source-form .inline-form { margin: 8px 0; }
+.source-preview video { width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: var(--r-sm); }

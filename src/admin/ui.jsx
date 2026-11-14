@@ -58,6 +58,7 @@ export function MultiChips({ label, options, value, onChange, hint, span = 2 }) 
 
 // Free text tags: type and press Enter or comma
 export function TagInput({ label, value, onChange, placeholder, hint, span = 2, suggestions }) {
+  // suggestions: names already used on other titles (shown while typing)
   const [text, setText] = useState('');
   const list = toList(value);
   const add = (raw) => {
@@ -93,6 +94,7 @@ export function TagInput({ label, value, onChange, placeholder, hint, span = 2, 
           aria-label={label}
         />
         {suggestions && <datalist id={listId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>}
+        <button type="button" className="tag-add" onClick={() => add(text)} disabled={!text.trim()}>+ Add</button>
       </div>
       {hint && <small className="hint">{hint}</small>}
     </div>

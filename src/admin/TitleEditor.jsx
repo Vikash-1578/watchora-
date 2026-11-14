@@ -14,7 +14,7 @@ import { Sources, Episodes } from './Videos.jsx';
 const EMPTY = {
   name: '', original_name: '', slug: '', category: 'movies', subcategory: '', language: 'Hindi', audio: 'Hindi',
   subtitles: '', genres: '', tags: '', year: '', release_date: '', runtime: '', country: 'India', certificate: '',
-  status: '', quality: '', imdb_rating: '', description: '',
+  status: '', quality: '', imdb_rating: '', cast_list: '', director: '', studio: '', collection: '', part: '', description: '',
   poster: '', backdrop: '', trailer: '', tmdb_id: '', featured: false, published: true,
 };
 
@@ -30,6 +30,7 @@ const fromTitle = (t) => {
 const SECTIONS = [
   ['basic', 'Basic info'],
   ['details', 'Language & genres'],
+  ['people', 'Cast & crew'],
   ['media', 'Poster & trailer'],
   ['publish', 'Publishing'],
   ['videos', 'Videos'],
@@ -43,6 +44,9 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [similar, setSimilar] = useState([]);
+  const [suggest, setSuggest] = useState({ people: [], studios: [], collections: [] });
+
+  useEffect(() => { api.suggest().then(setSuggest).catch(() => {}); }, []);
 
   const load = () =>
     api.adminTitle(id).then((t) => {
@@ -182,6 +186,17 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
             <Field label="Release date">
               <input className="a-input" type="date" value={form.release_date} onChange={(e) => setForm((f) => ({ ...f, release_date: e.target.value, year: f.year || e.target.value.slice(0, 4) }))} />
             </Field>
+            {!episodic && (
+              <>
+                <Field label="Movie series (optional)" span={2} hint="Same name on every part links them together, e.g. KGF, Pushpa, Golmaal.">
+                  <input className="a-input" list="collection-options" value={form.collection} onChange={set('collection')} placeholder="e.g. KGF" />
+                  <datalist id="collection-options">{suggest.collections.map((c) => <option key={c} value={c} />)}</datalist>
+                </Field>
+                <Field label="Part number">
+                  <input className="a-input" type="number" min="1" max="50" value={form.part} onChange={set('part')} placeholder="1" disabled={!form.collection} />
+                </Field>
+              </>
+            )}
             <Field label="Story / description" span={4} count={`${descLen} / 4000`} hint="2 to 4 sentences work best. No spoilers.">
               <textarea className="a-input" rows="4" maxLength={4000} value={form.description} onChange={set('description')} />
             </Field>
@@ -251,6 +266,28 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
             </Field>
             <Field label="URL slug" hint="Made from the name if empty.">
               <input className="a-input" value={form.slug} onChange={set('slug')} placeholder="mirzapur-2018" />
+            </Field>
+          </div>
+        </Section>
+
+        <Section id="sec-people" title="Cast & crew" desc="Cast = actors. Viewers can tap a name to see everything with that person, and similar titles show “More with …”.">
+          <div className="form-grid">
+            <TagInput
+              label="Cast (actors)"
+              value={form.cast_list}
+              onChange={set('cast_list')}
+              span={4}
+              placeholder="Type an actor's name"
+              suggestions={suggest.people}
+              hint="Put the lead actors first (hero, heroine). Names you used before appear while typing, so the spelling stays the same."
+            />
+            <Field label={episodic ? 'Created by / director' : 'Director'} span={2} hint="Two or more? Separate with a comma.">
+              <input className="a-input" list="people-options" value={form.director} onChange={set('director')} />
+              <datalist id="people-options">{suggest.people.map((p) => <option key={p} value={p} />)}</datalist>
+            </Field>
+            <Field label={episodic ? 'Studio / channel' : 'Studio'} span={2}>
+              <input className="a-input" list="studio-options" value={form.studio} onChange={set('studio')} />
+              <datalist id="studio-options">{suggest.studios.map((p) => <option key={p} value={p} />)}</datalist>
             </Field>
           </div>
         </Section>

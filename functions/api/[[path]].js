@@ -120,11 +120,16 @@ async function listTitles(env, url) {
   }
   const genre = p.get('genre');
   if (genre) { where.push("(',' || genres || ',') LIKE ?"); args.push(`%,${genre},%`); }
+  const person = (p.get('person') || '').trim().slice(0, 100);
+  if (person) {
+    where.push("((',' || cast_list || ',') LIKE ? OR (',' || REPLACE(director, ', ', ',') || ',') LIKE ? OR studio = ?)");
+    args.push(`%,${person},%`, `%,${person},%`, person);
+  }
   const q = (p.get('q') || '').trim().slice(0, 80);
   if (q) {
-    where.push('(name LIKE ? OR original_name LIKE ? OR tags LIKE ? OR genres LIKE ?)');
+    where.push('(name LIKE ? OR original_name LIKE ? OR tags LIKE ? OR genres LIKE ? OR cast_list LIKE ? OR collection LIKE ?)');
     const like = `%${q}%`;
-    args.push(like, like, like, like);
+    args.push(like, like, like, like, like, like);
   }
 
   const sorts = { popular: 'views DESC', year: 'year DESC', rating: 'imdb_rating DESC', name: 'name COLLATE NOCASE ASC' };
@@ -141,18 +146,55 @@ async function getTitle(env, key, { admin = false } = {}) {
     `SELECT * FROM titles WHERE ${admin ? 'id' : 'slug'} = ? ${admin ? '' : 'AND published = 1'}`
   ).bind(key).first();
   if (!title) return null;
-  const [eps, srcs] = await env.DB.batch([
+  const [eps, srcs, subs] = await env.DB.batch([
     env.DB.prepare('SELECT * FROM episodes WHERE title_id = ? ORDER BY season, episode').bind(title.id),
-    env.DB.prepare('SELECT id, episode_id, label, url, quality, sort FROM sources WHERE title_id = ? ORDER BY sort, id').bind(title.id),
+    env.DB.prepare('SELECT id, episode_id, label, url, quality, kind, audio, download_url, size, sort FROM sources WHERE title_id = ? ORDER BY sort, id').bind(title.id),
+    env.DB.prepare('SELECT id, episode_id, language, url, sort FROM subtitles WHERE title_id = ? ORDER BY sort, id').bind(title.id),
   ]);
-  const out = { ...title, episodes: eps.results, sources: srcs.results };
+  const out = { ...title, episodes: eps.results, sources: srcs.results, subtitle_files: subs.results };
   if (!admin) {
-    const related = await env.DB.prepare(
-      `SELECT ${LIST_COLS} FROM titles WHERE published = 1 AND is_adult = ? AND category = ? AND id != ? ORDER BY (subcategory = ?) DESC, views DESC LIMIT 12`
-    ).bind(title.is_adult, title.category, title.id, title.subcategory || '').all();
-    out.related = related.results;
+    out.subtitle_files = subs.results.map((x) => ({ id: x.id, episode_id: x.episode_id, language: x.language, url: `/api/subtitle/${x.id}` }));
+    Object.assign(out, await related(env, title));
   }
   return out;
+}
+
+// Parts of the same movie series, titles with the same actors, and titles with matching genres
+async function related(env, t) {
+  const base = `SELECT ${LIST_COLS}, part, collection FROM titles WHERE published = 1 AND is_adult = ? AND id != ?`;
+  const parts = t.collection
+    ? (await env.DB.prepare(`${base} AND collection = ? ORDER BY COALESCE(part, 999), year`).bind(t.is_adult, t.id, t.collection).all()).results
+    : [];
+  const skip = new Set(parts.map((x) => x.id));
+
+  const castNames = (t.cast_list || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 5);
+  let byCast = [];
+  if (castNames.length) {
+    const score = castNames.map(() => "(CASE WHEN (',' || cast_list || ',') LIKE ? THEN 1 ELSE 0 END)").join(' + ');
+    const likes = castNames.map((n) => `%,${n},%`);
+    byCast = (await env.DB.prepare(
+      `SELECT * FROM (SELECT ${LIST_COLS}, views, cast_list, (${score}) AS score FROM titles WHERE published = 1 AND is_adult = ? AND id != ?) WHERE score > 0 ORDER BY score DESC, views DESC LIMIT 18`
+    ).bind(...likes, t.is_adult, t.id).all()).results.filter((x) => !skip.has(x.id));
+  }
+
+  const genres = (t.genres || '').split(',').map((x) => x.trim()).filter(Boolean).slice(0, 4);
+  const gScore = genres.length
+    ? genres.map(() => "(CASE WHEN (',' || genres || ',') LIKE ? THEN 2 ELSE 0 END)").join(' + ')
+    : '0';
+  const byGenre = (await env.DB.prepare(
+    `SELECT * FROM (SELECT ${LIST_COLS}, views, (${gScore}) + (CASE WHEN category = ? THEN 1 ELSE 0 END) AS score FROM titles WHERE published = 1 AND is_adult = ? AND id != ?) WHERE score > 0 ORDER BY score DESC, views DESC LIMIT 24`
+  ).bind(...genres.map((g) => `%,${g},%`), t.category, t.is_adult, t.id).all()).results
+    .filter((x) => !skip.has(x.id))
+    .slice(0, 18);
+
+  // which of this title's actors appear in each cast match (for the row heading)
+  const castShown = castNames.filter((n) => byCast.some((x) => `,${x.cast_list},`.includes(`,${n},`))).slice(0, 2);
+  return {
+    parts,
+    byCast: byCast.map(({ cast_list: _c, score: _s, views: _v, ...x }) => x),
+    castShown,
+    byGenre: byGenre.map(({ score: _s, views: _v, ...x }) => x),
+  };
 }
 
 async function publicTitle(env, slug, ctx) {
@@ -160,6 +202,26 @@ async function publicTitle(env, slug, ctx) {
   if (!t) return fail('Title not found', 404);
   ctx.waitUntil(env.DB.prepare('UPDATE titles SET views = views + 1 WHERE id = ?').bind(t.id).run());
   return cached(t, 30);
+}
+
+// Subtitle files are fetched here (so any host works) and SRT is turned into WebVTT for the player
+function srtToVtt(text) {
+  const body = text.replace(/\r/g, '').replace(/^\uFEFF/, '').trim()
+    .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+  return body.startsWith('WEBVTT') ? body : `WEBVTT\n\n${body}`;
+}
+
+async function subtitleFile(env, id) {
+  const row = id ? await env.DB.prepare('SELECT url FROM subtitles WHERE id = ?').bind(id).first() : null;
+  if (!row) return fail('Subtitle not found', 404);
+  const r = await fetch(row.url, { cf: { cacheTtl: 86400, cacheEverything: true } });
+  if (!r.ok) return fail('Subtitle file could not be loaded', 502);
+  const buf = await r.arrayBuffer();
+  if (buf.byteLength > 2_000_000) return fail('Subtitle file is too big', 413);
+  const text = new TextDecoder('utf-8').decode(buf);
+  return new Response(srtToVtt(text), {
+    headers: { 'Content-Type': 'text/vtt; charset=utf-8', 'Cache-Control': 'public, max-age=86400' },
+  });
 }
 
 // ---------- admin: titles ----------
@@ -201,6 +263,8 @@ function cleanTitle(b) {
       backdrop: str(b.backdrop, 500),
       trailer: str(b.trailer, 300),
       tmdb_id: int(b.tmdb_id),
+      collection: str(b.collection, 120),
+      part: int(b.part),
       featured: b.featured ? 1 : 0,
       published: b.published === false || b.published === 0 ? 0 : 1,
     },
@@ -306,6 +370,18 @@ async function addEpisodes(env, titleId, items) {
 }
 
 // ---------- admin: sources ----------
+const sourceKind = (url, given) => {
+  if (['embed', 'file', 'hls'].includes(given)) return given;
+  const u = String(url || '').split('?')[0].toLowerCase();
+  if (u.endsWith('.m3u8')) return 'hls';
+  if (/\.(mp4|webm|m4v|mov|ogv|mkv)$/.test(u)) return 'file';
+  return 'embed';
+};
+const sourceExtras = (b) => ({
+  audio: str(b.audio, 40),
+  download_url: b.download_url && isHttpUrl(b.download_url) ? str(b.download_url, 1000) : '',
+  size: str(b.size, 20),
+});
 async function addSource(env, b) {
   const titleId = Number(b.title_id);
   if (!titleId) return fail('Title is required');
@@ -313,8 +389,9 @@ async function addSource(env, b) {
   const episodeId = b.episode_id ? Number(b.episode_id) : null;
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM sources WHERE title_id = ? AND episode_id IS ?')
     .bind(titleId, episodeId).first();
-  const r = await env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, sort) VALUES (?, ?, ?, ?, ?, ?)')
-    .bind(titleId, episodeId, str(b.label, 40) || `Server ${n + 1}`, str(b.url, 1000), str(b.quality, 20), n).run();
+  const x = sourceExtras(b);
+  const r = await env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, kind, audio, download_url, size, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(titleId, episodeId, str(b.label, 40) || `Server ${n + 1}`, str(b.url, 1000), str(b.quality, 20), sourceKind(b.url, b.kind), x.audio, x.download_url, x.size, n).run();
   await touch(env, titleId);
   return json({ id: r.meta.last_row_id }, 201);
 }
@@ -345,8 +422,8 @@ async function bulkSources(env, b) {
     urls.map((url, i) => {
       const epId = byNo[start + i];
       const n = have[epId] || 0;
-      return env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, sort) VALUES (?, ?, ?, ?, ?, ?)')
-        .bind(titleId, epId, str(b.label, 40) || `Server ${n + 1}`, url, str(b.quality, 20), n);
+      return env.DB.prepare('INSERT INTO sources (title_id, episode_id, label, url, quality, kind, audio, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(titleId, epId, str(b.label, 40) || `Server ${n + 1}`, url, str(b.quality, 20), sourceKind(url), str(b.audio, 40), n);
     })
   );
   await touch(env, titleId);
@@ -462,6 +539,7 @@ async function tmdbRoute(env, parts, url) {
       studio: d.production_companies?.[0]?.name || d.networks?.[0]?.name || '',
       status: STATUS_MAP[d.status] || '',
       certificate,
+      collection: d.belongs_to_collection?.name ? d.belongs_to_collection.name.replace(/\s*Collection$/i, '') : '',
       seasons: type === 'tv'
         ? (d.seasons || []).filter((s) => s.season_number > 0).map((s) => ({ season: s.season_number, name: s.name, episodes: s.episode_count }))
         : [],
@@ -517,6 +595,7 @@ async function admin(env, request, parts, url) {
     if (id && method === 'DELETE') {
       await env.DB.batch([
         env.DB.prepare('DELETE FROM sources WHERE title_id = ?').bind(Number(id)),
+        env.DB.prepare('DELETE FROM subtitles WHERE title_id = ?').bind(Number(id)),
         env.DB.prepare('DELETE FROM episodes WHERE title_id = ?').bind(Number(id)),
         env.DB.prepare('DELETE FROM titles WHERE id = ?').bind(Number(id)),
       ]);
@@ -554,10 +633,43 @@ async function admin(env, request, parts, url) {
     if (id && method === 'DELETE') {
       await env.DB.batch([
         env.DB.prepare('DELETE FROM sources WHERE episode_id = ?').bind(Number(id)),
+        env.DB.prepare('DELETE FROM subtitles WHERE episode_id = ?').bind(Number(id)),
         env.DB.prepare('DELETE FROM episodes WHERE id = ?').bind(Number(id)),
       ]);
       return json({ ok: true });
     }
+  }
+
+  if (resource === 'subtitles') {
+    if (!id && method === 'POST') {
+      const titleId = Number(body.title_id);
+      if (!titleId) return fail('Title is required');
+      if (!isHttpUrl(body.url)) return fail('Subtitle link must start with http(s)');
+      const language = str(body.language, 40);
+      if (!language) return fail('Choose the subtitle language');
+      const r = await env.DB.prepare('INSERT INTO subtitles (title_id, episode_id, language, url) VALUES (?, ?, ?, ?)')
+        .bind(titleId, body.episode_id ? Number(body.episode_id) : null, language, str(body.url, 1000)).run();
+      return json({ id: r.meta.last_row_id }, 201);
+    }
+    if (id && method === 'DELETE') {
+      await env.DB.prepare('DELETE FROM subtitles WHERE id = ?').bind(Number(id)).run();
+      return json({ ok: true });
+    }
+  }
+
+  if (resource === 'suggest' && method === 'GET') {
+    const { results } = await env.DB.prepare("SELECT cast_list, director, studio, collection FROM titles").all();
+    const people = new Set();
+    const studios = new Set();
+    const collections = new Set();
+    results.forEach((r) => {
+      (r.cast_list || '').split(',').forEach((n) => n.trim() && people.add(n.trim()));
+      (r.director || '').split(',').forEach((n) => n.trim() && people.add(n.trim()));
+      if (r.studio) studios.add(r.studio);
+      if (r.collection) collections.add(r.collection);
+    });
+    const sort = (x) => [...x].sort((a, b) => a.localeCompare(b));
+    return json({ people: sort(people), studios: sort(studios), collections: sort(collections) });
   }
 
   if (resource === 'sources') {
@@ -568,7 +680,13 @@ async function admin(env, request, parts, url) {
       const sets = [];
       const args = [];
       if (body.label !== undefined) { sets.push('label = ?'); args.push(str(body.label, 40) || 'Server'); }
-      if (body.url !== undefined) { sets.push('url = ?'); args.push(str(body.url, 1000)); }
+      if (body.url !== undefined) { sets.push('url = ?', 'kind = ?'); args.push(str(body.url, 1000), sourceKind(body.url, body.kind)); }
+      if (body.audio !== undefined) { sets.push('audio = ?'); args.push(str(body.audio, 40)); }
+      if (body.size !== undefined) { sets.push('size = ?'); args.push(str(body.size, 20)); }
+      if (body.download_url !== undefined) {
+        if (body.download_url && !isHttpUrl(body.download_url)) return fail('Download link must start with http(s)');
+        sets.push('download_url = ?'); args.push(str(body.download_url, 1000));
+      }
       if (body.quality !== undefined) { sets.push('quality = ?'); args.push(str(body.quality, 20)); }
       if (body.sort !== undefined) { sets.push('sort = ?'); args.push(int(body.sort) || 0); }
       if (!sets.length) return fail('Nothing to change');
@@ -611,11 +729,12 @@ export async function onRequest(context) {
     if (parts[0] === 'home') return await home(env, url);
     if (parts[0] === 'titles' && !parts[1]) return await listTitles(env, url);
     if (parts[0] === 'titles' && parts[1]) return await publicTitle(env, decodeURIComponent(parts[1]), context);
+    if (parts[0] === 'subtitle' && parts[1]) return await subtitleFile(env, Number(parts[1]));
     return fail('Not found', 404);
   } catch (e) {
     console.error(e);
     const msg = String(e?.message || '');
-    if (msg.includes('no such column')) return fail('Database needs an update. Run migrations/0002_details.sql in the D1 console.', 500);
+    if (msg.includes('no such column')) return fail('Database needs an update. Run the newest file in the migrations folder in the D1 console.', 500);
     if (msg.startsWith('TMDB')) return fail(msg, 502);
     return fail('Server error. Try again in a moment.', 500);
   }

@@ -6,12 +6,13 @@ import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 import { Grid, GridSkeleton, Empty } from '../components/Cards.jsx';
 
 // Filterable, paged grid. Used by category pages, search and the 18+ section.
-export default function Browse({ category, subs, adult = false, q = '', emptyText }) {
+export default function Browse({ category, subs, adult = false, q = '', emptyText, person = '', fixedGenre = '', categoryChips }) {
   const [params, setParams] = useSearchParams();
   const sub = params.get('sub') || '';
   const lang = params.get('lang') || '';
-  const genre = params.get('genre') || '';
+  const genre = fixedGenre || params.get('genre') || '';
   const sort = params.get('sort') || 'new';
+  const cat = category || params.get('cat') || '';
 
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -19,13 +20,13 @@ export default function Browse({ category, subs, adult = false, q = '', emptyTex
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const key = [category, sub, lang, genre, sort, q, adult].join('|');
+  const key = [cat, sub, lang, genre, sort, q, adult, person].join('|');
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     setError(null);
-    api.titles({ category, sub, lang, genre, sort, q, adult: adult ? 1 : '', page: 1 })
+    api.titles({ category: cat, sub, lang, genre, sort, q, person, adult: adult ? 1 : '', page: 1 })
       .then((r) => { if (alive) { setItems(r.items); setHasMore(r.hasMore); setPage(1); } })
       .catch((e) => alive && setError(e))
       .finally(() => alive && setLoading(false));
@@ -35,7 +36,7 @@ export default function Browse({ category, subs, adult = false, q = '', emptyTex
   const more = async () => {
     setLoading(true);
     try {
-      const r = await api.titles({ category, sub, lang, genre, sort, q, adult: adult ? 1 : '', page: page + 1 });
+      const r = await api.titles({ category: cat, sub, lang, genre, sort, q, person, adult: adult ? 1 : '', page: page + 1 });
       setItems((x) => [...x, ...r.items]);
       setHasMore(r.hasMore);
       setPage(page + 1);
@@ -55,6 +56,14 @@ export default function Browse({ category, subs, adult = false, q = '', emptyTex
   return (
     <>
       <div className="filters">
+        {categoryChips && (
+          <div className="chips" role="group" aria-label="Category">
+            <button type="button" className={`chip ${!cat ? 'on' : ''}`} onClick={() => set('cat', '')}>All</button>
+            {categoryChips.map((c) => (
+              <button key={c.slug} type="button" className={`chip ${cat === c.slug ? 'on' : ''}`} onClick={() => set('cat', c.slug)}>{c.name}</button>
+            ))}
+          </div>
+        )}
         {subs?.length > 0 && (
           <div className="chips" role="group" aria-label="Type">
             <button type="button" className={`chip ${!sub ? 'on' : ''}`} onClick={() => set('sub', '')}>All</button>
@@ -76,13 +85,13 @@ export default function Browse({ category, subs, adult = false, q = '', emptyTex
               </optgroup>
             </select>
           </label>
-          <label>
+          {!fixedGenre && <label>
             <span className="sr">Genre</span>
             <select value={genre} onChange={(e) => set('genre', e.target.value)}>
               <option value="">All genres</option>
               {GENRES.map((g) => <option key={g}>{g}</option>)}
             </select>
-          </label>
+          </label>}
           <label>
             <span className="sr">Sort</span>
             <select value={sort} onChange={(e) => set('sort', e.target.value === 'new' ? '' : e.target.value)}>

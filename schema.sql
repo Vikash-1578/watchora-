@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS titles (
   backdrop TEXT DEFAULT '',          -- wide image URL (16:9)
   trailer TEXT DEFAULT '',           -- YouTube link
   tmdb_id INTEGER,
+  collection TEXT DEFAULT '',        -- movie series / franchise name, e.g. KGF
+  part INTEGER,                      -- part number inside the collection
   featured INTEGER NOT NULL DEFAULT 0,
   published INTEGER NOT NULL DEFAULT 1,
   views INTEGER NOT NULL DEFAULT 0,
@@ -59,6 +61,21 @@ CREATE TABLE IF NOT EXISTS sources (
   label TEXT NOT NULL DEFAULT 'Server 1',
   url TEXT NOT NULL,
   quality TEXT DEFAULT '',
+  kind TEXT DEFAULT 'embed',         -- embed | file | hls
+  audio TEXT DEFAULT '',             -- audio language of this server
+  download_url TEXT DEFAULT '',
+  size TEXT DEFAULT '',
   sort INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_sources_title ON sources(title_id, episode_id);
+
+CREATE TABLE IF NOT EXISTS subtitles (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title_id INTEGER NOT NULL REFERENCES titles(id) ON DELETE CASCADE,
+  episode_id INTEGER REFERENCES episodes(id) ON DELETE CASCADE,
+  language TEXT NOT NULL,
+  url TEXT NOT NULL,
+  sort INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_subtitles_title ON subtitles(title_id, episode_id);
+CREATE INDEX IF NOT EXISTS idx_titles_collection ON titles(collection);

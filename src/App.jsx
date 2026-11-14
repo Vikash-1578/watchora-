@@ -11,6 +11,7 @@ import Adult from './pages/Adult.jsx';
 import Admin from './pages/Admin.jsx';
 import { About, Privacy, Dmca, Contact } from './pages/Info.jsx';
 import NotFound from './pages/NotFound.jsx';
+import { Person, Genre } from './pages/People.jsx';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -34,6 +35,8 @@ export default function App() {
           <Route path="/c/:cat" element={<Category />} />
           <Route path="/title/:slug" element={<Title />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/person/:name" element={<Person />} />
+          <Route path="/genre/:name" element={<Genre />} />
           <Route path="/my-list" element={<MyList />} />
           <Route path="/18plus/*" element={<Adult />} />
           <Route path="/admin" element={<Admin />} />
