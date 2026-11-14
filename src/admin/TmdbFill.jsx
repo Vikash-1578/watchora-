@@ -15,7 +15,7 @@ function guessPlacement(d) {
     if (south.includes(lang)) return { category: 'movies', subcategory: 'South Indian' };
     return { category: 'movies', subcategory: 'Regional' };
   }
-  const dramaMap = { Korean: 'Korean', Chinese: 'Chinese', Japanese: 'Japanese' };
+  const dramaMap = { Korean: 'Korean', 'Chinese (Mandarin)': 'Chinese', Cantonese: 'Chinese', Japanese: 'Japanese' };
   if (dramaMap[lang]) return { category: 'drama', subcategory: dramaMap[lang] };
   if (d.country === 'Turkey') return { category: 'drama', subcategory: 'Turkish' };
   if (d.country === 'Pakistan') return { category: 'drama', subcategory: 'Pakistani' };

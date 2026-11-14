@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 import {
-  ALL_CATEGORIES, LANGUAGES, GENRES, CERTIFICATES, STATUSES, QUALITIES, COUNTRIES,
+  ALL_CATEGORIES, GENRES, CERTIFICATES, STATUSES, QUALITIES, COUNTRIES,
   catBySlug, isEpisodic, titlePath,
 } from '../config.js';
-import { Field, MultiChips, TagInput, Toggle, ImagePreview, Section, ConfirmButton, useToast, youTubeId } from './ui.jsx';
+import { Field, MultiChips, TagInput, Toggle, ImagePreview, Section, ConfirmButton, useToast, youTubeId, LanguagePicker } from './ui.jsx';
+import { TrailerPlayer } from '../components/Trailer.jsx';
 import TmdbFill from './TmdbFill.jsx';
 import { Sources, Episodes } from './Videos.jsx';
 
@@ -150,6 +152,14 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
             <Field label="Original name" span={2} hint="Only if different, e.g. a Korean or Hindi script name.">
               <input className="a-input" value={form.original_name} onChange={set('original_name')} />
             </Field>
+            <TagInput
+              label="Other names (optional)"
+              value={form.tags}
+              onChange={set('tags')}
+              span={4}
+              placeholder="Type a name and press Enter"
+              hint="Other names people may type in the search box to find this title. Example for “Mirzapur”: Mirjapur, Kaleen Bhaiya. Leave empty if not needed."
+            />
             {similar.length > 0 && (
               <p className="note-warn span-4">
                 Already added?{' '}
@@ -182,11 +192,6 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
 
         <Section id="sec-details" title="Language & genres" desc="Used for filters and search.">
           <div className="form-grid">
-            <Field label="Original language">
-              <select value={form.language} onChange={set('language')}>
-                {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
-              </select>
-            </Field>
             <Field label="Country">
               <input className="a-input" list="country-options" value={form.country} onChange={set('country')} />
               <datalist id="country-options">{COUNTRIES.map((c) => <option key={c} value={c} />)}</datalist>
@@ -203,15 +208,35 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
                 {STATUSES.map((s) => <option key={s}>{s}</option>)}
               </select>
             </Field>
-            <MultiChips
-              label="Audio languages"
-              options={LANGUAGES.filter((l) => l !== 'Other')}
+            <LanguagePicker
+              label="Original language"
+              value={form.language}
+              onChange={set('language')}
+              all={ALL_LANGUAGES}
+              popular={POPULAR_LANGUAGES}
+              multiple={false}
+              placeholder="The language it was made in"
+            />
+            <LanguagePicker
+              label="Audio available in"
               value={form.audio}
               onChange={set('audio')}
-              span={4}
-              hint={audioCount > 1 ? `Shows a “${audioCount > 2 ? 'Multi audio' : 'Dual audio'}” badge on the site.` : 'Pick every language this video can be heard in.'}
+              all={ALL_LANGUAGES}
+              popular={POPULAR_LANGUAGES}
+              placeholder="No audio languages chosen"
+              hint={audioCount > 1
+                ? `Viewers will see “${audioCount > 2 ? 'Multi audio' : 'Dual audio'}” and the full list on the title page.`
+                : 'Tick every language this video can be heard in. Tap a common one below, or press “Choose” to search all languages.'}
             />
-            <MultiChips label="Subtitles" options={['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam', 'Bengali']} value={form.subtitles} onChange={set('subtitles')} span={4} />
+            <LanguagePicker
+              label="Subtitles available in"
+              value={form.subtitles}
+              onChange={set('subtitles')}
+              all={ALL_LANGUAGES.filter((l) => l !== 'No dialogue (silent)')}
+              popular={['English', 'Hindi', 'Tamil', 'Telugu', 'Malayalam', 'Kannada', 'Bengali', 'Marathi', 'Arabic', 'Spanish', 'French', 'Indonesian']}
+              placeholder="No subtitles"
+              hint="Tick every subtitle language. Leave empty if there are no subtitles."
+            />
             <MultiChips label="Genres" options={GENRES} value={form.genres} onChange={set('genres')} span={4} hint="Pick 1 to 3 for the best filter results." />
             <Field label="Video quality">
               <select value={form.quality} onChange={set('quality')}>
@@ -228,11 +253,10 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
             <Field label="URL slug" hint="Made from the name if empty.">
               <input className="a-input" value={form.slug} onChange={set('slug')} placeholder="mirzapur-2018" />
             </Field>
-            <TagInput label="Search keywords" value={form.tags} onChange={set('tags')} span={4} placeholder="Type and press Enter, e.g. kaleen bhaiya, gangster" hint="Other names people search for: nicknames, Hindi names, spelling mistakes." />
           </div>
         </Section>
 
-        <Section id="sec-people" title="Cast & crew">
+        <Section id="sec-people" title="Cast & crew" desc="Cast = the actors. Crew = the people who made it (director, studio). Shown on the title page, and viewers can search by an actor's name.">
           <div className="form-grid">
             <TagInput label="Cast" value={form.cast_list} onChange={set('cast_list')} span={4} placeholder="Type a name and press Enter" />
             <Field label={episodic ? 'Creator / director' : 'Director'} span={2}>
@@ -257,13 +281,16 @@ export default function TitleEditor({ id, go, onAuthError, tmdbEnabled }) {
                 <input className="a-input" type="url" value={form.backdrop} onChange={set('backdrop')} placeholder="https://…" />
               </Field>
               <ImagePreview src={form.backdrop} ratio="16 / 9" label="Banner preview" />
-              <Field label="Trailer (YouTube link)">
-                <input className="a-input" type="url" value={form.trailer} onChange={set('trailer')} placeholder="https://www.youtube.com/watch?v=…" />
+              <Field
+                label="Trailer link (optional)"
+                hint="Best: a direct video file link (.mp4) or a link from your video host. It plays in Watchora's own player with no other logo. YouTube links work too, but YouTube's own logo stays inside its player."
+              >
+                <input className="a-input" type="url" value={form.trailer} onChange={set('trailer')} placeholder="https://…/trailer.mp4" />
               </Field>
-              {form.trailer && !ytId && <p className="warn small">This doesn't look like a YouTube link.</p>}
-              {ytId && (
-                <div className="img-preview" style={{ aspectRatio: '16 / 9' }}>
-                  <iframe src={`https://www.youtube.com/embed/${ytId}`} title="Trailer preview" allowFullScreen />
+              {form.trailer && (
+                <div className="trailer-preview">
+                  <TrailerPlayer url={form.trailer} title="Trailer preview" />
+                  {ytId && <p className="small muted">This is a YouTube link, so YouTube's logo shows in the player.</p>}
                 </div>
               )}
             </div>

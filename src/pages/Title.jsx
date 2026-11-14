@@ -6,6 +6,7 @@ import { catBySlug, isEpisodic } from '../config.js';
 import { history, watchlist } from '../local.js';
 import { Poster, Empty, SafeImg, Row } from '../components/Cards.jsx';
 import Player from '../components/Player.jsx';
+import { TrailerPlayer } from '../components/Trailer.jsx';
 import NotFound from './NotFound.jsx';
 
 export function TitleView({ slug, adult = false }) {
@@ -46,7 +47,6 @@ export function TitleView({ slug, adult = false }) {
   const audio = t.audio ? t.audio.split(',') : [];
   const cast = t.cast_list ? t.cast_list.split(',') : [];
   const subs = t.subtitles ? t.subtitles.split(',') : [];
-  const ytId = (String(t.trailer || '').match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/) || [])[1];
   const runtime = t.runtime ? `${t.runtime >= 60 ? `${Math.floor(t.runtime / 60)}h ` : ''}${t.runtime % 60 ? `${t.runtime % 60}m` : ''}`.trim() : '';
 
   const pickEpisode = (e) => {
@@ -78,11 +78,16 @@ export function TitleView({ slug, adult = false }) {
               {t.status && t.status !== 'Released' && <li>{t.status}</li>}
             </ul>
             {(audio.length > 0 || t.language) && (
-              <p className="audio">
-                {audio.length > 1 && <span className="audio-badge">{audio.length > 2 ? 'Multi audio' : 'Dual audio'}</span>}
-                {(audio.length ? audio : [t.language]).join(', ')}
-                {subs.length > 0 && <span className="muted">  |  Subtitles: {subs.join(', ')}</span>}
-              </p>
+              <div className="langs">
+                <p>
+                  <span className="langs-label">Audio</span>
+                  {audio.length > 1 && <span className="audio-badge">{audio.length > 2 ? 'Multi audio' : 'Dual audio'}</span>}
+                  {(audio.length ? audio : [t.language]).join(', ')}
+                </p>
+                {subs.length > 0 && (
+                  <p><span className="langs-label">Subtitles</span>{subs.join(', ')}</p>
+                )}
+              </div>
             )}
             {genres.length > 0 && (
               <p className="genres">{genres.join(', ')}</p>
@@ -93,8 +98,8 @@ export function TitleView({ slug, adult = false }) {
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>
                 {episode ? `Play S${episode.season} E${episode.episode}` : 'Play'}
               </a>
-              {ytId && (
-                <button type="button" className="btn btn-ghost" onClick={() => setTrailer(true)}>Trailer</button>
+              {t.trailer && (
+                <button type="button" className="btn btn-ghost" onClick={() => setTrailer(true)}>Watch trailer</button>
               )}
               <button type="button" className="btn btn-ghost" aria-pressed={saved} onClick={() => setSaved(watchlist.toggle(t))}>
                 {saved ? 'Saved to my list' : 'Add to my list'}
@@ -112,11 +117,11 @@ export function TitleView({ slug, adult = false }) {
           />
         </section>
 
-        {trailer && ytId && (
+        {trailer && t.trailer && (
           <div className="modal" role="dialog" aria-modal="true" aria-label={`${t.name} trailer`} onClick={() => setTrailer(false)}>
             <div className="modal-box" onClick={(e) => e.stopPropagation()}>
               <button type="button" className="modal-close" onClick={() => setTrailer(false)} aria-label="Close trailer">×</button>
-              <iframe src={`https://www.youtube.com/embed/${ytId}?autoplay=1`} title={`${t.name} trailer`} allow="autoplay; fullscreen" allowFullScreen />
+              <TrailerPlayer url={t.trailer} title={`${t.name} trailer`} autoPlay />
             </div>
           </div>
         )}

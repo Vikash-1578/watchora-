@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
-import { LANGUAGES, GENRES } from '../config.js';
+import { GENRES } from '../config.js';
+import { ALL_LANGUAGES, POPULAR_LANGUAGES } from '../languages.js';
 import { Grid, GridSkeleton, Empty } from '../components/Cards.jsx';
 
 // Filterable, paged grid. Used by category pages, search and the 18+ section.
@@ -67,7 +68,12 @@ export default function Browse({ category, subs, adult = false, q = '', emptyTex
             <span className="sr">Language</span>
             <select value={lang} onChange={(e) => set('lang', e.target.value)}>
               <option value="">All languages</option>
-              {LANGUAGES.map((l) => <option key={l}>{l}</option>)}
+              <optgroup label="Popular">
+                {POPULAR_LANGUAGES.map((l) => <option key={l}>{l}</option>)}
+              </optgroup>
+              <optgroup label="All languages">
+                {ALL_LANGUAGES.filter((l) => !POPULAR_LANGUAGES.includes(l)).map((l) => <option key={l}>{l}</option>)}
+              </optgroup>
             </select>
           </label>
           <label>

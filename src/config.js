@@ -42,10 +42,6 @@ export const ADULT = {
 
 export const ALL_CATEGORIES = [...CATEGORIES, ADULT];
 
-export const LANGUAGES = [
-  'Hindi', 'English', 'Tamil', 'Telugu', 'Malayalam', 'Kannada',
-  'Bengali', 'Marathi', 'Punjabi', 'Korean', 'Japanese', 'Chinese', 'Other',
-];
 
 export const CERTIFICATES = ['U', 'UA 7+', 'UA 13+', 'UA 16+', 'A'];
 export const STATUSES = ['Released', 'Ongoing', 'Completed', 'Upcoming'];

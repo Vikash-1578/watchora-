@@ -165,3 +165,91 @@ export function Section({ title, desc, children, actions, id }) {
     </section>
   );
 }
+
+// ---------- language picker: search + tick boxes ----------
+export function LanguagePicker({ label, value, onChange, all, popular, multiple = true, hint, placeholder = 'Choose languages' }) {
+  const selected = multiple ? toList(value) : (value ? [value] : []);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const id = `lp-${label.replace(/\W/g, '')}`;
+
+  const pick = (lang) => {
+    if (!multiple) { onChange(lang); setOpen(false); setQ(''); return; }
+    const next = selected.includes(lang) ? selected.filter((x) => x !== lang) : [...selected, lang];
+    onChange(next.join(','));
+  };
+  const remove = (lang) => onChange(multiple ? selected.filter((x) => x !== lang).join(',') : '');
+
+  const term = q.trim().toLowerCase();
+  const matches = term ? all.filter((l) => l.toLowerCase().includes(term)) : all;
+  const quick = popular.slice(0, 12);
+
+  return (
+    <div className="field span-4 lp">
+      <span className="field-label" id={`${id}-label`}>
+        {label}
+        {multiple && selected.length > 0 && <em className="count">{selected.length} selected</em>}
+      </span>
+
+      <div className="lp-box">
+        {selected.length === 0 && <span className="muted">{placeholder}</span>}
+        {selected.map((l) => (
+          <span key={l} className="tag">
+            {l}
+            <button type="button" onClick={() => remove(l)} aria-label={`Remove ${l}`}>×</button>
+          </span>
+        ))}
+        <button type="button" className="lp-toggle" aria-expanded={open} aria-controls={`${id}-panel`} onClick={() => setOpen(!open)}>
+          {open ? 'Done' : selected.length ? (multiple ? '+ Add more' : 'Change') : '+ Choose'}
+        </button>
+      </div>
+
+      {multiple && (
+        <div className="lp-quick" aria-label="Common languages">
+          {quick.map((l) => (
+            <button key={l} type="button" className={`chip chip-sm ${selected.includes(l) ? 'on' : ''}`} aria-pressed={selected.includes(l)} onClick={() => pick(l)}>
+              {selected.includes(l) ? '✓ ' : ''}{l}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && (
+        <div className="lp-panel" id={`${id}-panel`} role="group" aria-labelledby={`${id}-label`}>
+          <div className="lp-search">
+            <input
+              className="a-input"
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={`Search ${all.length} languages`}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); if (matches[0]) pick(matches[0]); }
+                if (e.key === 'Escape') setOpen(false);
+              }}
+            />
+            {multiple && selected.length > 0 && (
+              <button type="button" className="link-btn" onClick={() => onChange('')}>Clear all</button>
+            )}
+          </div>
+          {matches.length === 0 && <p className="muted small">No language called “{q}”. Check the spelling.</p>}
+          <ul className="lp-list">
+            {matches.map((l) => {
+              const on = selected.includes(l);
+              return (
+                <li key={l}>
+                  <button type="button" className={`lp-item ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => pick(l)}>
+                    <span className={multiple ? 'lp-check' : 'lp-radio'} aria-hidden="true">{on ? '✓' : ''}</span>
+                    {l}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {hint && <small className="hint">{hint}</small>}
+    </div>
+  );
+}

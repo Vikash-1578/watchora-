@@ -357,7 +357,18 @@ async function bulkSources(env, b) {
 const TMDB_IMG = 'https://image.tmdb.org/t/p/';
 const LANG_NAMES = {
   hi: 'Hindi', en: 'English', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada', bn: 'Bengali',
-  mr: 'Marathi', pa: 'Punjabi', ko: 'Korean', ja: 'Japanese', zh: 'Chinese', cn: 'Chinese',
+  mr: 'Marathi', pa: 'Punjabi', gu: 'Gujarati', ur: 'Urdu', or: 'Odia', as: 'Assamese', ne: 'Nepali',
+  si: 'Sinhala', sa: 'Sanskrit', ko: 'Korean', ja: 'Japanese', zh: 'Chinese (Mandarin)', cn: 'Cantonese',
+  es: 'Spanish', fr: 'French', de: 'German', it: 'Italian', pt: 'Portuguese', ru: 'Russian', ar: 'Arabic',
+  tr: 'Turkish', fa: 'Persian (Farsi)', th: 'Thai', id: 'Indonesian', ms: 'Malay', vi: 'Vietnamese',
+  tl: 'Filipino (Tagalog)', he: 'Hebrew', el: 'Greek', nl: 'Dutch', sv: 'Swedish', no: 'Norwegian',
+  nb: 'Norwegian', da: 'Danish', fi: 'Finnish', is: 'Icelandic', pl: 'Polish', cs: 'Czech', sk: 'Slovak',
+  hu: 'Hungarian', ro: 'Romanian', bg: 'Bulgarian', sr: 'Serbian', hr: 'Croatian', bs: 'Bosnian',
+  sl: 'Slovenian', uk: 'Ukrainian', lt: 'Lithuanian', lv: 'Latvian', et: 'Estonian', ka: 'Georgian',
+  hy: 'Armenian', az: 'Azerbaijani', kk: 'Kazakh', uz: 'Uzbek', ps: 'Pashto', ku: 'Kurdish',
+  my: 'Burmese', km: 'Khmer', lo: 'Lao', mn: 'Mongolian', bo: 'Tibetan', sw: 'Swahili', am: 'Amharic',
+  yo: 'Yoruba', ig: 'Igbo', ha: 'Hausa', zu: 'Zulu', xh: 'Xhosa', af: 'Afrikaans', so: 'Somali',
+  ga: 'Irish', cy: 'Welsh', eu: 'Basque', ca: 'Catalan', gl: 'Galician', la: 'Latin', mi: 'Maori',
 };
 const GENRE_MAP = {
   'Science Fiction': ['Sci-Fi'], 'Sci-Fi & Fantasy': ['Sci-Fi', 'Fantasy'], 'Action & Adventure': ['Action', 'Adventure'],
