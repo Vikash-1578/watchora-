@@ -8,7 +8,6 @@ import { toEmbedUrl } from '../embed.js';
 
 export { toEmbedUrl };
 
-const isOwnPlayer = (url) => /\.(m3u8|mp4|webm|m4v|mov|ogv|mkv)(\?.*)?$/i.test(String(url || ''));
 const titleAudios = (t) => (t.audio ? t.audio.split(',').filter(Boolean) : t.language ? [t.language] : []);
 
 function AudioSelect({ value, onChange, t }) {
@@ -89,9 +88,7 @@ export function Sources({ t, episodeId, reload, onAuthError }) {
             grow
             hint={url && toEmbedUrl(url) !== url.trim()
               ? `Will be saved as: ${toEmbedUrl(url)}`
-              : url && isOwnPlayer(url)
-                ? 'Direct video: plays in the Watchora player with quality, subtitles and volume boost.'
-                : 'Paste a .mp4 / .m3u8 link (Watchora player) or an embed/share link from your video host.'}
+              : 'Paste the video link: a .mp4 / .m3u8 file link or a link from your video host.'}
           >
             <input className="a-input" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/movie-720p.mp4 or https://streamtape.com/v/…" required />
           </Field>
@@ -143,7 +140,6 @@ function SourceRow({ s, t, first, last, onUp, onDown, onPreview, previewing, rel
           </div>
           <div className="source-info">
             <strong>{s.label}</strong>
-            {s.kind === 'file' || s.kind === 'hls' ? <span className="kind kind-own">Watchora player</span> : <span className="kind kind-host">Host player</span>}
             {s.audio && <span className="pill">{s.audio}</span>}
             {s.quality && <span className="pill">{s.quality}</span>}
             {(s.download_url || s.kind === 'file') && <span className="pill">Download{s.size ? ` ${s.size}` : ''}</span>}
@@ -420,7 +416,7 @@ function Subtitles({ t, episodeId, reload }) {
   return (
     <div className="subs-admin">
       <h3 className="sub-head">Subtitle files</h3>
-      <p className="small muted">Works with the Watchora player (.mp4 / .m3u8 servers). Paste a link to a .srt or .vtt file.</p>
+      <p className="small muted">Paste a link to a .srt or .vtt file. Subtitles show on servers with .mp4 or .m3u8 links.</p>
       {list.length > 0 && (
         <ul>
           {list.map((x) => (
